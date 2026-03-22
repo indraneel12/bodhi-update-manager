@@ -1,14 +1,11 @@
 Source: bodhi-update-manager
 Section: admin
 Priority: optional
-Maintainer: Robert Wiley <you@example.com>
+Maintainer: Joseph Wiley <flux.abyss@proton.me>
 Build-Depends:
  debhelper-compat (= 13),
  dh-python,
- python3-all,
- pybuild-plugin-pyproject,
- python3-setuptools,
- python3-wheel
+ python3
 Standards-Version: 4.7.0
 Rules-Requires-Root: no
 Homepage: https://www.bodhilinux.com/

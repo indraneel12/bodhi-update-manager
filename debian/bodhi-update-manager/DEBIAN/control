@@ -1,0 +1,13 @@
+Package: bodhi-update-manager
+Version: 0.1-1
+Architecture: all
+Maintainer: Joseph Wiley <flux.abyss@proton.me>
+Installed-Size: 1293
+Depends: python3:any, policykit-1, python3-gi, python3-apt, gir1.2-gtk-3.0, gir1.2-vte-2.91
+Recommends: flatpak, snapd
+Section: admin
+Priority: optional
+Homepage: https://www.bodhilinux.com/
+Description: Update manager for Bodhi Linux
+ A graphical update manager for Debian/Ubuntu-based systems with support
+ for APT and optional integration with Flatpak and Snap.

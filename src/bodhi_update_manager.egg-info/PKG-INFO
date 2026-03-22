@@ -2,7 +2,7 @@ Metadata-Version: 2.1
 Name: bodhi-update-manager
 Version: 0.1.0
 Summary: Update manager for Debian/Ubuntu-based systems
-Author-email: Flux-Abyss (Joseph Wiley) <flux.abyss@proton.me>
+Author-email: Joseph Wiley <flux.abyss@proton.me>
 License: GPL-3.0-or-later
 Project-URL: homepage, https://github.com/flux-abyss/bodhi-update-manager
 Project-URL: issues, https://github.com/flux-abyss/bodhi-update-manager/issues
@@ -341,7 +341,7 @@ Run as a normal user. Elevation is requested only when needed.
 
 ## Credits
 
-- Developer: Flux-Abyss (Joseph Wiley)
+- Developer: Joseph Wiley
 
 ---
 

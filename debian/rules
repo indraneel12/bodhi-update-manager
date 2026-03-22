@@ -1,4 +1,20 @@
 #!/usr/bin/make -f
 
 %:
-	dh $@ --with python3 --buildsystem=pybuild
+	dh $@ --with python3
+
+override_dh_auto_build:
+	: # nothing to build — pure Python, no compilation step
+
+override_dh_auto_install:
+	# Install the application package tree under /usr/lib/bodhi-update-manager/.
+	# Exclude __pycache__ directories (dh_python3 generates correct ones at install time).
+	install -d debian/bodhi-update-manager/usr/lib/bodhi-update-manager
+	cp -r src/bodhi_update \
+	    debian/bodhi-update-manager/usr/lib/bodhi-update-manager/
+	find debian/bodhi-update-manager/usr/lib/bodhi-update-manager \
+	    -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
+	# Install the launcher script with the executable bit set.
+	install -d debian/bodhi-update-manager/usr/bin
+	install -m 755 data/bin/bodhi-update-manager \
+	    debian/bodhi-update-manager/usr/bin/bodhi-update-manager

@@ -1,3 +1,18 @@
+bodhi-update-manager (0.1-2) unstable; urgency=medium
+
+  * Switch to Debian-controlled install layout (no pybuild)
+  * Implement dynamic plugin discovery
+  * Add manual launcher
+  * Clean packaging flow
+
+ -- Joseph Wiley <flux.abyss@proton.me>  Sat, 21 Mar 2026 18:00:00 -0400
+
+bodhi-update-manager (0.1-1ubuntu1) UNRELEASED; urgency=medium
+
+  * 
+
+ -- flux <flux@MicroForge>  Sat, 21 Mar 2026 23:12:04 -0400
+
 bodhi-update-manager (0.1-1) unstable; urgency=medium
 
   * Initial Release

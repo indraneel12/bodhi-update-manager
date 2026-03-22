@@ -329,7 +329,7 @@ Run as a normal user. Elevation is requested only when needed.
 
 ## Credits
 
-- Developer: Flux-Abyss (Joseph Wiley)
+- Developer: Joseph Wiley
 
 ---
 

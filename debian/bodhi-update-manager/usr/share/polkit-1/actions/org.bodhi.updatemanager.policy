@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+  "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+
+<!--
+  Polkit policy for the Bodhi Update Manager root helper.
+
+  Install to: /usr/share/polkit-1/actions/org.bodhi.updatemanager.policy
+  Helper installed at: /usr/libexec/bodhi-update-manager-root
+-->
+
+<policyconfig>
+
+  <vendor>Bodhi Linux</vendor>
+  <vendor_url>https://www.bodhilinux.com</vendor_url>
+
+  <action id="org.bodhi.updatemanager.run">
+    <description>Run the Bodhi Update Manager privileged helper</description>
+    <message>Authentication is required to install or update packages.</message>
+    <icon_name>system-software-update</icon_name>
+
+    <defaults>
+      <!-- Remote / inactive sessions require admin authentication each time -->
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <!-- Active (local) desktop sessions: authenticate once and keep the
+           credential for a short window (e.g. 5 minutes), matching the
+           behaviour of Linux Mint Update Manager. -->
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/bodhi-update-manager-root</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+  </action>
+
+</policyconfig>

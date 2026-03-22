@@ -1,0 +1,17 @@
+[Unit]
+Description=Bodhi Update Manager — background APT cache refresh
+Documentation=https://github.com/BodhiLinux/bodhi-update-manager
+# Only run when a network connection is available.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Run the root helper directly — no pkexec, no polkit prompt.
+# This service runs as root (systemd default when no User= is set).
+ExecStart=/usr/libexec/bodhi-update-manager-root refresh
+# Suppress non-fatal stderr noise (e.g. apt progress messages).
+StandardOutput=journal
+StandardError=journal
+# If the refresh fails (e.g. no network), don't mark the system degraded.
+SuccessExitStatus=0 100

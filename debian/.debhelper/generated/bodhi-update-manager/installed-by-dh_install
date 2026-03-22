@@ -1,0 +1,6 @@
+./data/applications/bodhi-update-manager.desktop
+./data/icons/bodhi-update-manager.png
+./data/libexec/bodhi-update-manager-root
+./data/polkit/org.bodhi.updatemanager.policy
+./data/systemd/bodhi-update-manager-refresh.service
+./data/systemd/bodhi-update-manager-refresh.timer

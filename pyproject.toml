@@ -10,12 +10,9 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "GPL-3.0-or-later"}
 authors = [
-  {name = "Flux-Abyss (Joseph Wiley)", email = "flux.abyss@proton.me"}
+  {name = "Joseph Wiley", email = "flux.abyss@proton.me"}
 ]
 dependencies = []
-
-[project.scripts]
-bodhi-update-manager = "bodhi_update.main:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
