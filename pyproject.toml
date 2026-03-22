@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bodhi-update-manager"
+version = "0.1.0"
+description = "Update manager for Debian/Ubuntu-based systems"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "GPL-3.0-or-later"}
+authors = [
+  {name = "Flux-Abyss (Joseph Wiley)", email = "flux.abyss@proton.me"}
+]
+dependencies = []
+
+[project.scripts]
+bodhi-update-manager = "bodhi_update.main:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.urls]
+homepage = "https://github.com/flux-abyss/bodhi-update-manager"
+issues = "https://github.com/flux-abyss/bodhi-update-manager/issues"
+
+[tool.ruff.lint]
+# Because of gi.require_version we get this a lot
+ignore = ["E402"]

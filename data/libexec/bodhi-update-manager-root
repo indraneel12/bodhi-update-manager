@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+"""Privileged root helper for the Bodhi Update Manager.
+
+Intended installation path: /usr/libexec/bodhi-update-manager-root
+
+This script MUST be run as root (via pkexec).  It accepts a restricted set
+of subcommands and rejects everything else.  No shell=True is used anywhere.
+
+Supported commands:
+  refresh                  -- apt-get update
+  upgrade                  -- apt-get full-upgrade
+  install <pkg> [<pkg>...] -- apt-get install -y <packages>
+  install-deb <path>       -- apt-get install -y <absolute .deb path>
+  reboot                   -- systemctl reboot
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import sys
+import subprocess
+
+# ---------------------------------------------------------------------------
+# Validation helpers (module-level so they can be tested without root)
+# ---------------------------------------------------------------------------
+
+# Debian/Ubuntu package names: alphanumeric + '.', '+', '-'; 1-128 chars long;
+# must start with a letter or digit.
+_PACKAGE_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9.+\-]{0,127}$")
+
+
+def _validate_package_name(name: str) -> None:
+    """Raise ValueError if *name* is not a legal Debian package name."""
+    if not _PACKAGE_RE.match(name):
+        raise ValueError(f"Invalid package name: {name!r}")
+
+
+def _validate_deb_path(path: str) -> str:
+    """Normalise and validate a .deb file path.
+
+    Returns the normalised absolute path on success.
+    Raises ValueError / FileNotFoundError on bad input.
+    """
+    norm = os.path.abspath(os.path.expanduser(path))
+
+    if not norm.lower().endswith(".deb"):
+        raise ValueError(f"Not a .deb file: {path!r}")
+
+    if not os.path.isfile(norm):
+        raise FileNotFoundError(f"File not found or not a regular file: {path!r}")
+
+    return norm
+
+
+# ---------------------------------------------------------------------------
+# Command dispatch
+# ---------------------------------------------------------------------------
+
+def _cmd_refresh(args: list[str]) -> int:
+    """apt-get update.  Rejects unexpected extra arguments."""
+    if args:
+        print(f"error: 'refresh' takes no arguments, got: {args}", file=sys.stderr)
+        return 1
+
+    result = subprocess.run(
+        ["apt-get", "update", "-q"],
+        check=False,
+    )
+    return result.returncode
+
+
+def _cmd_upgrade(args: list[str]) -> int:
+    """apt-get full-upgrade.  Rejects unexpected extra arguments."""
+    if args:
+        print(f"error: 'upgrade' takes no arguments, got: {args}", file=sys.stderr)
+        return 1
+
+    result = subprocess.run(
+        ["apt-get", "full-upgrade", "-y"],
+        check=False,
+    )
+    return result.returncode
+
+
+def _cmd_install(args: list[str]) -> int:
+    """apt-get install -y <packages>."""
+    if not args:
+        print("error: 'install' requires at least one package name.", file=sys.stderr)
+        return 1
+
+    try:
+        for pkg in args:
+            _validate_package_name(pkg)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    result = subprocess.run(
+        ["apt-get", "install", "-y", *args],
+        check=False,
+    )
+    return result.returncode
+
+
+def _cmd_install_deb(args: list[str]) -> int:
+    """apt-get install -y <absolute .deb path>."""
+    if len(args) != 1:
+        print("error: 'install-deb' requires exactly one .deb path.", file=sys.stderr)
+        return 1
+
+    try:
+        norm_path = _validate_deb_path(args[0])
+    except (ValueError, FileNotFoundError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    result = subprocess.run(
+        ["apt-get", "install", "-y", norm_path],
+        check=False,
+    )
+    return result.returncode
+
+
+def _cmd_reboot(args: list[str]) -> int:
+    """systemctl reboot.  Rejects unexpected extra arguments."""
+    if args:
+        print(f"error: 'reboot' takes no arguments, got: {args}", file=sys.stderr)
+        return 1
+
+    result = subprocess.run(["systemctl", "reboot"], check=False)
+    return result.returncode
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+_COMMANDS = {
+    "refresh": _cmd_refresh,
+    "upgrade": _cmd_upgrade,
+    "install": _cmd_install,
+    "install-deb": _cmd_install_deb,
+    "reboot": _cmd_reboot,
+}
+
+
+def main() -> int:
+    if os.geteuid() != 0:
+        print("error: this helper must be run as root (via pkexec).", file=sys.stderr)
+        return 1
+
+    if len(sys.argv) < 2:
+        print(
+            f"usage: {os.path.basename(sys.argv[0])} "
+            "<refresh|upgrade|install|install-deb|reboot> [args...]",
+            file=sys.stderr,
+        )
+        return 1
+
+    command = sys.argv[1]
+    extra_args = sys.argv[2:]
+
+    handler = _COMMANDS.get(command)
+    if handler is None:
+        print(
+            f"error: unknown command {command!r}. "
+            f"Allowed: {', '.join(_COMMANDS)}",
+            file=sys.stderr,
+        )
+        return 1
+
+    return handler(extra_args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

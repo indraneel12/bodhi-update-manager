@@ -1,0 +1,31 @@
+Source: bodhi-update-manager
+Section: admin
+Priority: optional
+Maintainer: Robert Wiley <you@example.com>
+Build-Depends:
+ debhelper-compat (= 13),
+ dh-python,
+ python3-all,
+ pybuild-plugin-pyproject,
+ python3-setuptools,
+ python3-wheel
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://www.bodhilinux.com/
+
+Package: bodhi-update-manager
+Architecture: all
+Depends:
+ ${misc:Depends},
+ ${python3:Depends},
+ policykit-1,
+ python3-gi,
+ python3-apt,
+ gir1.2-gtk-3.0,
+ gir1.2-vte-2.91
+Recommends:
+ flatpak,
+ snapd
+Description: Update manager for Bodhi Linux
+ A graphical update manager for Debian/Ubuntu-based systems with support
+ for APT and optional integration with Flatpak and Snap.

@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs and scratch
+*.log
+*.out
+
+# Generated test assets
+test-assets/*.deb
+test-assets/*.log
+test-assets/brokenpkg/
+
+.env
+
+# Local test assets
+test-assets/
+purge-reinstall.sh
+purge-reinstall.sh

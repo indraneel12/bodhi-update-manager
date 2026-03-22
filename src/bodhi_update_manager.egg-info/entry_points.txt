@@ -1,0 +1,2 @@
+[console_scripts]
+bodhi-update-manager = bodhi_update.main:main

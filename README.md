@@ -1,0 +1,361 @@
+# Bodhi Update Manager
+
+![Platform](https://img.shields.io/badge/platform-Linux-lightgrey)
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
+![GTK](https://img.shields.io/badge/GTK-3.x-green)
+![License](https://img.shields.io/badge/License-GPL-3.0-or-later-green)
+![Status](https://img.shields.io/badge/status-stable-brightgreen)
+
+A lightweight graphical update manager for **Bodhi Linux**.
+
+Built with **Python**, **GTK3**, and **VTE**, the application provides a clean interface for managing updates across multiple package systems while preserving full terminal output when needed.
+
+> Status: **v1.0 — stable initial release**
+
+---
+
+## Tested Environment
+
+| Component | Version |
+|---|---|
+| OS | Bodhi Linux (Ubuntu/Debian base) |
+| Desktop | Moksha |
+| Python | 3.10+ |
+| GUI toolkit | GTK3 (PyGObject) |
+| Terminal | VTE |
+
+---
+
+## Architecture
+
+The project is built around a **modular multi-backend system**.
+
+    bodhi-update-manager/
+    ├── main.py
+    ├── app.py
+    ├── backends.py
+    ├── backend_apt.py
+    ├── backend_flatpak.py
+    ├── backend_snap.py
+    ├── backend_python.py
+    ├── backend_rust.py
+    ├── install_commands.py
+    ├── models.py
+    ├── utils.py
+    ├── root_helper.py
+    ├── setup_installer.py
+    ├── bodhi-update-manager
+    ├── bodhi-update-manager.desktop
+    ├── bodhi-update-manager-refresh.service
+    ├── bodhi-update-manager-refresh.timer
+    ├── org.bodhi.updatemanager.policy
+    ├── README.md
+    └── LICENSE
+
+### Key Concepts
+
+- **Backends are isolated**  
+  Each package manager implements a common interface.
+
+- **UI is backend-agnostic**  
+  `app.py` aggregates and displays updates from all enabled sources.
+
+- **Registry-driven**  
+  Backends are dynamically discovered and managed centrally.
+
+- **Strict privilege separation**  
+  Only APT operations escalate privileges via a controlled helper.
+
+---
+
+## Backends
+
+### APT (System Packages)
+
+- Uses `python-apt`
+- Detects upgradeable packages
+- Security and kernel classification
+- Lock detection via `/proc`
+- Network-aware refresh handling
+- Runs with privilege via polkit/root helper
+
+---
+
+### Flatpak
+
+- Detects updates via:
+
+    flatpak --system remote-ls --updates
+
+- Installs updates via:
+
+    flatpak update
+
+- Supports:
+  - system installs
+  - user installs (future extension ready)
+
+- No privilege escalation required
+
+---
+
+### Snap
+
+- Detects updates via:
+
+    snap refresh --list
+
+- Installs updates via:
+
+    snap refresh
+
+- Requires system snapd environment
+
+---
+
+### Python (pip --user)
+
+- Detects outdated user packages:
+
+    python3 -m pip list --user --outdated --format=json
+
+- Updates via:
+
+    python3 -m pip install --user --upgrade <packages>
+
+- Safe scope:
+  - does **not** touch system Python
+  - does **not** touch virtual environments
+
+---
+
+### Rust (cargo)
+
+- Detects installed tools:
+
+    cargo install --list
+
+- Updates via:
+
+    cargo install --force <packages>
+
+- Safe scope:
+  - only user-installed tools
+  - does **not** touch projects or workspaces
+
+---
+
+## Background Refresh (systemd)
+
+- Uses:
+  - `bodhi-update-manager-refresh.service`
+  - `bodhi-update-manager-refresh.timer`
+- Runs periodically
+- Refreshes APT cache silently
+- Executed as root via systemd (no GUI prompt)
+
+---
+
+## Privilege Model
+
+Minimal and explicit:
+
+| Operation | Method |
+|----------|--------|
+| APT refresh/install (GUI) | pkexec (polkit) |
+| Background refresh | systemd (root) |
+| Flatpak / Snap | system tools (no helper) |
+| Python / Rust | user space |
+
+No blanket sudo usage.
+
+---
+
+## Root Helper
+
+Installed to:
+
+    /usr/libexec/bodhi-update-manager-root
+
+Handles:
+
+- `apt-get update`
+- package installation
+- systemctl reboot trigger
+
+Security:
+
+- No `shell=True`
+- Strict argument validation
+- Minimal command surface
+
+---
+
+## UI Overview
+
+### Main View
+
+- Refresh
+- Install Selected
+- Select All / Clear
+- Category filter
+- Scrollable package list
+- Status bar
+
+---
+
+### Package List
+
+- Type column with icons:
+  - 🔒 security
+  - ⚙ kernel
+  - 🐍 python
+  - 🦀 rust
+  - 📸 snap
+  - 📦 flatpak
+  - 🗂 other
+
+- Two-line display:
+  - **bold package name**
+  - optional description (toggleable)
+
+---
+
+### Status Bar
+
+- Shows:
+  - number of selected updates
+  - download size
+  - mixed backend indicator (`+`)
+  - unknown size fallback
+
+---
+
+### View Menu
+
+- Toggle descriptions on/off (instant, no reload)
+
+---
+
+## Workflow
+
+### Startup
+
+- Window renders immediately (no UI freeze)
+- Cached update data loads asynchronously
+- No privilege escalation
+
+---
+
+### Refresh
+
+- Queries all registered backends
+- Aggregates results into unified view
+- Handles partial failures gracefully
+
+---
+
+### Install
+
+- Backend-specific commands generated via:
+  
+    install_commands.py
+
+- Runs inside embedded VTE terminal
+- Full output preserved
+- No shell usage
+
+---
+
+## Preferences
+
+Accessible via **Edit → Preferences**
+
+- Show package descriptions
+
+Preferences:
+- Apply instantly
+- Persist across sessions
+- Sync across UI elements
+
+---
+
+## Installation
+
+Run installer:
+
+    python3 setup_installer.py
+
+Installs:
+
+- `/usr/bin/bodhi-update-manager`
+- `/usr/libexec/bodhi-update-manager-root`
+- systemd units
+- polkit policy
+- desktop entry
+
+---
+
+## Local `.deb` Support
+
+    python3 main.py ./package.deb
+
+- Opens install view directly
+- Uses APT for dependency resolution
+- Full output shown in terminal view
+
+---
+
+## Dependencies
+
+    sudo apt install python3-gi gir1.2-gtk-3.0 gir1.2-vte-2.91 python3-apt
+
+Optional:
+
+- flatpak
+- snapd
+- python3-pip
+- cargo
+
+---
+
+## Running
+
+    python3 main.py
+
+Run as a normal user. Elevation is requested only when needed.
+
+---
+
+## Credits
+
+- Developer: Flux-Abyss (Joseph Wiley)
+
+---
+
+## Design Philosophy
+
+- lightweight
+- minimal
+- explicit
+- backend-agnostic
+- privilege-safe
+- no hidden behavior
+
+---
+
+## Notes
+
+This is a frontend, not a package manager replacement.
+
+Each backend handles:
+
+- dependency resolution
+- verification
+- execution
+
+---
+
+## License
+
+GPL-3.0-or-later. See `LICENSE`.

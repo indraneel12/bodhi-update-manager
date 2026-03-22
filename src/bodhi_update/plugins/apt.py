@@ -1,0 +1,301 @@
+"""APT-backed update discovery and package-list refresh."""
+
+from __future__ import annotations
+
+import os
+import subprocess
+from pathlib import Path
+from typing import List, Tuple
+
+import apt
+
+from bodhi_update.backends import UpdateBackend
+from bodhi_update.install_commands import build_upgrade_argv, get_helper_path
+from bodhi_update.models import UpdateItem
+from bodhi_update.utils import find_privilege_tool
+
+
+# APT/dpkg lock files whose open FileDescriptions indicate a busy package system.
+_LOCK_PATHS = (
+    Path("/var/lib/dpkg/lock"),
+    Path("/var/lib/dpkg/lock-frontend"),
+    Path("/var/lib/apt/lists/lock"),
+    Path("/var/cache/apt/archives/lock"),
+)
+
+# Package-manager process names and cmdline fragments to detect.
+# Matching against cmdline as well as comm catches helpers (e.g.
+# apt.systemd.daily) that appear as "python3" in /proc/<pid>/comm.
+_APT_PROCESS_KEYWORDS = frozenset((
+    "apt",
+    "apt-get",
+    "dpkg",
+    "aptitude",
+    "unattended-upgrade",
+    "apt.systemd.daily",
+    "synaptic",
+    "software-properties",
+))
+
+_LOCK_STDERR_HINTS = (
+    "could not get lock",
+    "unable to acquire the dpkg frontend lock",
+    "unable to lock directory",
+    "is another process using it?",
+)
+
+# Network-connectivity and partial-refresh failure fingerprints.
+_NETWORK_ERROR_HINTS = (
+    "could not resolve",
+    "unable to connect",
+    "network is unreachable",
+    "temporary failure in name resolution",
+    "failed to fetch",
+    "connection timed out",
+    "some index files failed to download",
+    "they have been ignored, or old ones used instead",
+)
+
+
+# ------------------------------------------------------------------ #
+# Internal /proc helpers                                               #
+# ------------------------------------------------------------------ #
+
+def _proc_comm(pid: str) -> str:
+    """Return the comm (process name) for *pid*, stripped.  '' on error."""
+    try:
+        with open(f"/proc/{pid}/comm") as fh:
+            return fh.read().strip()
+    except OSError:
+        return ""
+
+
+def _proc_cmdline(pid: str) -> str:
+    """Return the NUL-separated cmdline as a space-joined string.  '' on error."""
+    try:
+        with open(f"/proc/{pid}/cmdline", "rb") as fh:
+            raw = fh.read()
+        return raw.replace(b"\x00", b" ").decode("utf-8", errors="replace").strip()
+    except OSError:
+        return ""
+
+
+def _matches_apt_keyword(comm: str, cmdline: str) -> bool:
+    """Return True if comm or a cmdline token exactly matches a PM keyword."""
+    if comm in _APT_PROCESS_KEYWORDS:
+        return True
+
+    for token in cmdline.split():
+        if os.path.basename(token) in _APT_PROCESS_KEYWORDS:
+            return True
+
+    return False
+
+
+# ------------------------------------------------------------------ #
+# Package helpers                                                      #
+# ------------------------------------------------------------------ #
+
+def _get_origin_name(pkg: apt.package.Package) -> str:
+    """Return a compact archive/origin label for a candidate package."""
+    if pkg.candidate and pkg.candidate.origins:
+        archive = pkg.candidate.origins[0].archive
+        if archive:
+            return archive
+    return "unknown"
+
+
+def _is_security_update(origin: str) -> bool:
+    """Return True if the origin label looks like a security channel."""
+    return "security" in origin.lower()
+
+
+def _is_kernel_update(pkg_name: str) -> bool:
+    """Return True if the package is a common kernel or kernel-module package."""
+    return pkg_name.startswith(("linux-image", "linux-headers", "linux-modules"))
+
+
+def _determine_category(pkg_name: str, origin: str) -> str:
+    """Return 'security', 'kernel', or 'system' according to priority."""
+    if _is_security_update(origin):
+        return "security"
+    if _is_kernel_update(pkg_name):
+        return "kernel"
+    return "system"
+
+
+def _sort_key(item: UpdateItem) -> tuple[int, str]:
+    """Sort security updates first, then alphabetically by name."""
+    return (0 if _is_security_update(item.origin) else 1, item.name.lower())
+
+
+def _stderr_mentions_lock(text: str) -> bool:
+    """Return True if stderr text suggests an APT/dpkg lock conflict."""
+    lowered = text.lower()
+    return any(hint in lowered for hint in _LOCK_STDERR_HINTS)
+
+
+def _output_mentions_network_error(text: str) -> bool:
+    """Return True if output text suggests a network or partial update problem."""
+    lowered = text.lower()
+    return any(hint in lowered for hint in _NETWORK_ERROR_HINTS)
+
+
+# ------------------------------------------------------------------ #
+# AptBackend Class Definition                                          #
+# ------------------------------------------------------------------ #
+
+class AptBackend(UpdateBackend):
+    @property
+    def backend_id(self) -> str:
+        return "apt"
+
+    @property
+    def display_name(self) -> str:
+        return "Debian/Ubuntu Packages"
+
+    def is_available(self) -> bool:
+        # If python-apt is imported successfully (it is at the top), APT is available.
+        return True
+
+    def build_install_command(self, packages: List[str] | None = None) -> list[str]:
+        """Return a direct argv for privilege-escalated APT install/upgrade.
+
+        The returned list is passed straight to VTE spawn_async — no shell
+        layer is involved.  Privilege path: GUI → pkexec → helper → apt-get.
+        """
+        return build_upgrade_argv(packages)
+
+    def check_busy(self) -> Tuple[bool, str]:
+        """Return ``(is_busy, message)`` using layered /proc-based detection.
+
+        **Layer 1 — process scan**: walks ``/proc/<pid>/comm`` and
+        ``/proc/<pid>/cmdline`` for each running PID, matching against a broad
+        set of package-manager keywords.  This catches helpers that appear as
+        ``python3`` in *comm* but expose their identity in *cmdline* (e.g.
+        ``apt.systemd.daily``).
+
+        **Layer 2 — FD scan**: walks ``/proc/<pid>/fd`` symlinks looking for any
+        process that currently has an APT/dpkg lock file open.  This catches
+        processes that hold a lock but are momentarily sleeping and therefore not
+        matched by the name scan.
+
+        Returns ``(False, "")`` when no conflict is found or ``/proc`` is
+        unreadable.
+        """
+        ignore_pids = {os.getpid(), os.getppid()}
+        ignore_strs = {str(p) for p in ignore_pids} if ignore_pids else set()
+
+        try:
+            pids = [name for name in os.listdir("/proc") if name.isdigit()]
+        except OSError:
+            return False, ""
+
+        # Layer 1: process name / cmdline keyword scan
+        for pid in pids:
+            if pid in ignore_strs:
+                continue
+            comm = _proc_comm(pid)
+            cmdline = _proc_cmdline(pid)
+            if _matches_apt_keyword(comm, cmdline):
+                label = comm or "unknown"
+                return True, f"Another package manager is running: {label} (PID {pid})"
+
+        # Layer 2: open file-descriptor scan for APT/dpkg lock files
+        lock_strs = {str(p) for p in _LOCK_PATHS}
+        for pid in pids:
+            if pid in ignore_strs:
+                continue
+            fd_dir = f"/proc/{pid}/fd"
+            try:
+                fds = os.listdir(fd_dir)
+            except OSError:
+                continue
+            for fd in fds:
+                try:
+                    target = os.readlink(os.path.join(fd_dir, fd))
+                except OSError:
+                    continue
+                if target in lock_strs:
+                    comm = _proc_comm(pid) or "unknown"
+                    return True, f"Another package manager is running: {comm} (PID {pid})"
+
+        return False, ""
+
+    def refresh(self) -> Tuple[bool, str]:
+        """Run a privileged ``apt-get update`` via the root helper and return ``(success,
+        message)``."""
+        privilege_tool = find_privilege_tool()
+        if privilege_tool is None:
+            return False, "No privilege tool found (pkexec / sudo / doas)."
+
+        command = [privilege_tool, get_helper_path(), "refresh"]
+
+        try:
+            result = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=120,
+            )
+        except subprocess.TimeoutExpired:
+            return False, "Package list refresh timed out."
+        except OSError as exc:
+            return False, f"Failed to launch privilege tool: {exc}"
+
+        stdout_text = result.stdout or ""
+        stderr_text = result.stderr or ""
+        combined_output = stdout_text + "\n" + stderr_text
+
+        if _output_mentions_network_error(combined_output):
+            return False, "Unable to refresh package lists. Please check your internet connection."
+
+        if result.returncode == 0:
+            return True, "Package lists refreshed."
+
+        if _stderr_mentions_lock(stderr_text):
+            return False, "Another package manager is currently running."
+
+        first_err = next(
+            (line.strip() for line in stderr_text.splitlines() if line.strip()),
+            "unknown error",
+        )
+        return False, f"Failed to refresh package lists. ({first_err})"
+
+    def get_updates(self) -> Tuple[List[UpdateItem], int]:
+        """Read the local APT cache and return ``(updates, total_download_bytes)``."""
+        cache = apt.Cache()
+        cache.open()
+
+        updates: List[UpdateItem] = []
+        total_bytes = 0
+
+        for pkg in cache:
+            if not (pkg.is_installed and pkg.is_upgradable):
+                continue
+
+            installed_version = pkg.installed.version if pkg.installed else "unknown"
+            candidate_version = pkg.candidate.version if pkg.candidate else "unknown"
+            size = pkg.candidate.size if pkg.candidate else 0
+            origin = _get_origin_name(pkg)
+            summary = pkg.candidate.summary if pkg.candidate else ""
+
+            category = _determine_category(pkg.name, origin)
+
+            item = UpdateItem(
+                name=pkg.name,
+                installed_version=installed_version,
+                candidate_version=candidate_version,
+                size=size,
+                origin=origin,
+                backend="apt",
+                category=category,
+                description=summary,
+            )
+
+            updates.append(item)
+            total_bytes += size
+
+        updates.sort(key=_sort_key)
+        return updates, total_bytes
