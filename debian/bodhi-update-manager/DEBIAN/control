@@ -1,8 +1,8 @@
 Package: bodhi-update-manager
-Version: 0.1-1
+Version: 0.1-2
 Architecture: all
 Maintainer: Joseph Wiley <flux.abyss@proton.me>
-Installed-Size: 1293
+Installed-Size: 1294
 Depends: python3:any, policykit-1, python3-gi, python3-apt, gir1.2-gtk-3.0, gir1.2-vte-2.91
 Recommends: flatpak, snapd
 Section: admin

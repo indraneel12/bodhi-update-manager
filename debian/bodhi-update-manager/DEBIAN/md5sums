@@ -1,6 +1,6 @@
 65410ae004ecacdc6b34488b61b6774d  usr/bin/bodhi-update-manager
 d41d8cd98f00b204e9800998ecf8427e  usr/lib/bodhi-update-manager/bodhi_update/__init__.py
-0cc3db0970614374ea6e14e96396570b  usr/lib/bodhi-update-manager/bodhi_update/app.py
+66d0d396787dde09082ae23aa94bff47  usr/lib/bodhi-update-manager/bodhi_update/app.py
 0e6e5508266725df1be10c19ad71353a  usr/lib/bodhi-update-manager/bodhi_update/backends.py
 c814e78b80007f39c7d0805d3abc741f  usr/lib/bodhi-update-manager/bodhi_update/install_commands.py
 ad93af1d464f8f5d9816b391b7ab8eab  usr/lib/bodhi-update-manager/bodhi_update/main.py
@@ -14,7 +14,7 @@ ae1f84a8306efcdada3d4434c7b421d8  usr/lib/bodhi-update-manager/bodhi_update/plug
 15c6cea4632df9cd75073c229d28f0ad  usr/lib/systemd/system/bodhi-update-manager-refresh.timer
 6034c54db01b7730549d9af417b66f63  usr/libexec/bodhi-update-manager-root
 ccf3c9061489c6fd558877559799f983  usr/share/applications/bodhi-update-manager.desktop
-118a342d785c5182ebb22fa2cdcd58f0  usr/share/doc/bodhi-update-manager/changelog.Debian.gz
+32708208c22e2d35da4a4d8233c0588a  usr/share/doc/bodhi-update-manager/changelog.Debian.gz
 5603801380181f41cb0021a16c15373d  usr/share/doc/bodhi-update-manager/copyright
 7ce41357c81cd305f0c662feb7073039  usr/share/icons/hicolor/256x256/apps/bodhi-update-manager.png
 2349ff8db2d6e61f0e50a8a9b580d7e9  usr/share/polkit-1/actions/org.bodhi.updatemanager.policy

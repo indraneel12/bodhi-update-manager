@@ -398,24 +398,17 @@ class UpdateManagerWindow(Gtk.Window):
     # ------------------------------------------------------------------ #
 
     def _show_preferences_dialog(self) -> None:
-        old_prefs = dict(self.prefs)
-
         dialog = Gtk.Dialog(
             title="Preferences",
             transient_for=self,
             flags=Gtk.DialogFlags.MODAL,
         )
-        dialog.add_buttons(Gtk.STOCK_CLOSE, Gtk.ResponseType.CLOSE)
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dialog.add_button("Apply", Gtk.ResponseType.APPLY)
 
         box = dialog.get_content_area()
         box.set_spacing(8)
         box.set_border_width(8)
-
-        # Show descriptions checkbox
-        show_desc_check = Gtk.CheckButton(label="Show package descriptions")
-        show_desc_check.set_active(self.prefs.get("show_descriptions", True))
-        show_desc_check.connect("toggled", self._on_show_descriptions_toggled)
-        box.pack_start(show_desc_check, False, False, 0)
 
         # Optional backend visibility — only show toggles for registered backends.
         from bodhi_update.backends import get_registry  # noqa: PLC0415
@@ -435,20 +428,26 @@ class UpdateManagerWindow(Gtk.Window):
             box.pack_start(flatpak_check, False, False, 0)
 
         dialog.show_all()
-        dialog.run()
+        response = dialog.run()
 
-        # Harvest checkbox state before destroying.
-        if snap_check is not None:
-            self.prefs["show_snap"] = snap_check.get_active()
-        if flatpak_check is not None:
-            self.prefs["show_flatpak"] = flatpak_check.get_active()
+        if response == Gtk.ResponseType.APPLY:
+            changed = False
+            if snap_check is not None:
+                new_val = snap_check.get_active()
+                if self.prefs.get("show_snap", True) != new_val:
+                    self.prefs["show_snap"] = new_val
+                    changed = True
+            if flatpak_check is not None:
+                new_val = flatpak_check.get_active()
+                if self.prefs.get("show_flatpak", True) != new_val:
+                    self.prefs["show_flatpak"] = new_val
+                    changed = True
+            if changed:
+                self._save_prefs()
+                self.filter_model.refilter()
+                self._set_status("Preferences saved.")
 
         dialog.destroy()
-
-        if self.prefs != old_prefs:
-            self._save_prefs()
-            self.filter_model.refilter()
-            self._set_status("Preferences saved.")
 
     def _show_about_dialog(self) -> None:
         dialog = Gtk.Dialog(

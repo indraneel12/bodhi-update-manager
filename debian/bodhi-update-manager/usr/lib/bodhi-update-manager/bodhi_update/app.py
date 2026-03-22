@@ -13,20 +13,7 @@ from typing import Dict, List
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 log = logging.getLogger("bodhi-update-manager")
 
-# Ensure user-local binaries are visible in GUI-launched sessions.
-# This mainly matters for rustup-managed Cargo installs, which commonly live in
-# ~/.cargo/bin and may be missing from PATH when the app is started from a
-# desktop launcher instead of an interactive shell.
-cargo_bin = os.path.expanduser("~/.cargo/bin")
-path_entries = os.environ.get("PATH", "").split(os.pathsep)
-if os.path.isdir(cargo_bin) and cargo_bin not in path_entries:
-    os.environ["PATH"] = os.pathsep.join(
-        [entry for entry in (cargo_bin, os.environ.get("PATH", "")) if entry]
-    )
-
 # gi.require_version() must be called before any gi.repository imports.
-# The PATH manipulation above places non-import statements before these imports,
-# which is why noqa: E402 is required here and below.
 import gi  # noqa: E402
 
 gi.require_version("Gtk", "3.0")
@@ -70,6 +57,8 @@ class UpdateManagerWindow(Gtk.Window):
         self.install_pulse_source_id: int | None = None
 
         self.prefs = self._load_prefs()
+        # Guard flag used by _set_show_descriptions() to suppress menu re-entry.
+        self._syncing_desc = False
 
         # Show a minimal window immediately so the desktop feels responsive,
         # then let the event loop schedule the full heavy build.
@@ -216,10 +205,13 @@ class UpdateManagerWindow(Gtk.Window):
         self.category_combo.append("security", "Security")
         self.category_combo.append("kernel", "Kernel")
         self.category_combo.append("system", "System")
-        self.category_combo.append("python", "Python")
-        self.category_combo.append("rust", "Rust")
-        self.category_combo.append("snap", "Snap")
-        self.category_combo.append("flatpak", "Flatpak")
+        # Optional backends: only add a filter entry when discovered.
+        from bodhi_update.backends import get_registry  # noqa: PLC0415
+        _registered_ids = {b.backend_id for b in get_registry().get_all_backends()}
+        if "snap" in _registered_ids:
+            self.category_combo.append("snap", "Snap")
+        if "flatpak" in _registered_ids:
+            self.category_combo.append("flatpak", "Flatpak")
         self.category_combo.set_active_id("all")
         self.category_combo.connect("changed", self.on_category_changed)
         toolbar.pack_start(self.category_combo, False, False, 0)
@@ -406,32 +398,56 @@ class UpdateManagerWindow(Gtk.Window):
     # ------------------------------------------------------------------ #
 
     def _show_preferences_dialog(self) -> None:
-        old_prefs = dict(self.prefs)
-
         dialog = Gtk.Dialog(
             title="Preferences",
             transient_for=self,
             flags=Gtk.DialogFlags.MODAL,
         )
-        dialog.add_buttons(Gtk.STOCK_CLOSE, Gtk.ResponseType.CLOSE)
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dialog.add_button("Apply", Gtk.ResponseType.APPLY)
 
         box = dialog.get_content_area()
         box.set_spacing(8)
         box.set_border_width(8)
 
-        # Show descriptions checkbox
-        show_desc_check = Gtk.CheckButton(label="Show package descriptions")
-        show_desc_check.set_active(self.prefs.get("show_descriptions", True))
-        show_desc_check.connect("toggled", self._on_show_descriptions_toggled)
-        box.pack_start(show_desc_check, False, False, 0)
+        # Optional backend visibility — only show toggles for registered backends.
+        from bodhi_update.backends import get_registry  # noqa: PLC0415
+        _registered_ids = {b.backend_id for b in get_registry().get_all_backends()}
+
+        snap_check: Gtk.CheckButton | None = None
+        flatpak_check: Gtk.CheckButton | None = None
+
+        if "snap" in _registered_ids:
+            snap_check = Gtk.CheckButton(label="Show Snap updates")
+            snap_check.set_active(self.prefs.get("show_snap", True))
+            box.pack_start(snap_check, False, False, 0)
+
+        if "flatpak" in _registered_ids:
+            flatpak_check = Gtk.CheckButton(label="Show Flatpak updates")
+            flatpak_check.set_active(self.prefs.get("show_flatpak", True))
+            box.pack_start(flatpak_check, False, False, 0)
 
         dialog.show_all()
-        dialog.run()
-        dialog.destroy()
+        response = dialog.run()
 
-        if self.prefs != old_prefs:
-            self._save_prefs()
-            self._set_status("Preferences saved.")
+        if response == Gtk.ResponseType.APPLY:
+            changed = False
+            if snap_check is not None:
+                new_val = snap_check.get_active()
+                if self.prefs.get("show_snap", True) != new_val:
+                    self.prefs["show_snap"] = new_val
+                    changed = True
+            if flatpak_check is not None:
+                new_val = flatpak_check.get_active()
+                if self.prefs.get("show_flatpak", True) != new_val:
+                    self.prefs["show_flatpak"] = new_val
+                    changed = True
+            if changed:
+                self._save_prefs()
+                self.filter_model.refilter()
+                self._set_status("Preferences saved.")
+
+        dialog.destroy()
 
     def _show_about_dialog(self) -> None:
         dialog = Gtk.Dialog(
@@ -504,20 +520,17 @@ class UpdateManagerWindow(Gtk.Window):
         """Single source of truth for the show-descriptions preference.
 
         Updates the pref, persists it, syncs the View-menu CheckMenuItem
-        (blocking its signal to avoid recursion), and applies the markup
-        refresh immediately.
+        (blocking its toggled signal via a flag to avoid recursion), and
+        applies the markup refresh immediately.
         """
         self.prefs["show_descriptions"] = enabled
         self._save_prefs()
-        # Sync the CheckMenuItem without re-triggering on_toggle_descriptions.
-        handler_id = self.show_desc_menu_item.handler_find(
-            GLib.SignalMatchType.ID, 0, 0, None, self.on_toggle_descriptions, None
-        )
-        if handler_id > 0:
-            self.show_desc_menu_item.handler_block(handler_id)
-        self.show_desc_menu_item.set_active(enabled)
-        if handler_id > 0:
-            self.show_desc_menu_item.handler_unblock(handler_id)
+        # Set the guard flag so on_toggle_descriptions ignores this programmatic change.
+        self._syncing_desc = True
+        try:
+            self.show_desc_menu_item.set_active(enabled)
+        finally:
+            self._syncing_desc = False
         self._apply_show_descriptions()
 
     def _apply_show_descriptions(self) -> None:
@@ -545,8 +558,10 @@ class UpdateManagerWindow(Gtk.Window):
         return os.path.join(config_home, "bodhi-update-manager", "prefs.json")
 
     def _load_prefs(self) -> Dict[str, bool]:
-        defaults = {
+        defaults: Dict[str, bool] = {
             "show_descriptions": True,
+            "show_snap": True,
+            "show_flatpak": True,
         }
         path = self._get_prefs_path()
         if os.path.exists(path):
@@ -655,11 +670,9 @@ class UpdateManagerWindow(Gtk.Window):
         if cached:
             message += " · Cached package data"
 
-        # Give a lightweight hint if optional backends found anything
+        # Give a lightweight hint if optional backends found anything.
         extras = []
         for backend, label in (
-            ("rust", "Rust"),
-            ("python", "Python"),
             ("snap", "Snap"),
             ("flatpak", "Flatpak"),
         ):
@@ -722,6 +735,12 @@ class UpdateManagerWindow(Gtk.Window):
     def _category_filter_func(
         self, model: Gtk.TreeModel, iter_: Gtk.TreeIter, _data: object
     ) -> bool:
+        row_backend = model[iter_][self.COL_BACKEND]
+        # Hide rows whose backend is disabled in Preferences.
+        if row_backend == "snap" and not self.prefs.get("show_snap", True):
+            return False
+        if row_backend == "flatpak" and not self.prefs.get("show_flatpak", True):
+            return False
         category_id = self.category_combo.get_active_id()
         if not category_id or category_id == "all":
             return True
@@ -738,10 +757,6 @@ class UpdateManagerWindow(Gtk.Window):
             return "🔒"
         if category == "kernel":
             return "⚙"
-        if category == "python" or backend == "python":
-            return "🐍"
-        if category == "rust" or backend == "rust":
-            return "🦀"
         if category == "snap" or backend == "snap":
             return "📸"
         if category == "flatpak" or backend == "flatpak":
@@ -1032,7 +1047,7 @@ class UpdateManagerWindow(Gtk.Window):
             self._set_status("No privilege tool found. Please reboot manually.")
             return
 
-        from install_commands import get_helper_path  # noqa: PLC0415
+        from bodhi_update.install_commands import get_helper_path  # noqa: PLC0415
         try:
             subprocess.Popen([privilege_tool, get_helper_path(), "reboot"])
         except OSError as exc:
@@ -1105,7 +1120,13 @@ class UpdateManagerWindow(Gtk.Window):
         self.filter_model.refilter()
 
     def on_toggle_descriptions(self, checkmenuitem: Gtk.CheckMenuItem) -> None:
-        """View-menu CheckMenuItem — delegate to the shared helper."""
+        """View-menu CheckMenuItem — delegate to the shared helper.
+
+        Guarded by _syncing_desc to prevent re-entry when _set_show_descriptions
+        programmatically updates the menu item state.
+        """
+        if self._syncing_desc:
+            return
         self._set_show_descriptions(checkmenuitem.get_active())
 
     def on_check_updates(self, _button: Gtk.Button | None) -> None:
