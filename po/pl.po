@@ -6,8 +6,9 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-26 11:23+0000\n"
+"Report-Msgid-Bugs-To: https://github.com/flux-abyss/bodhi-update-manager/"
+"issues\n"
+"POT-Creation-Date: 2026-03-27 14:13-0400\n"
 "PO-Revision-Date: 2026-03-27 08:08+0000\n"
 "Last-Translator: diekrz2\n"
 "Language-Team: Bodhi Team\n"
@@ -88,7 +89,8 @@ msgstr "System"
 
 #: src/bodhi_update/app.py:242
 msgid "A system restart is required to complete the update."
-msgstr "Aby dokończyć aktualizację, wymagane jest ponowne uruchomienie systemu."
+msgstr ""
+"Aby dokończyć aktualizację, wymagane jest ponowne uruchomienie systemu."
 
 #: src/bodhi_update/app.py:246
 msgid "Restart Now"
@@ -352,8 +354,8 @@ msgid ""
 "Installing from multiple package sources simultaneously is not yet "
 "supported. Please select packages from one source type only."
 msgstr ""
-"Jednoczesna instalacja z wielu źródeł pakietów nie jest jeszcze "
-"obsługiwana. Proszę wybrać pakiety tylko z jednego typu źródła."
+"Jednoczesna instalacja z wielu źródeł pakietów nie jest jeszcze obsługiwana. "
+"Proszę wybrać pakiety tylko z jednego typu źródła."
 
 #: src/bodhi_update/app.py:1213
 #, python-format
