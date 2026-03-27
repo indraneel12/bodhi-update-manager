@@ -21,7 +21,7 @@ override_dh_auto_install:
 	install -m 755 data/bin/bodhi-update-manager \
 	    debian/bodhi-update-manager/usr/bin/bodhi-update-manager
 	install -m 755 data/bin/bodhi-update-manager-tray \
-	    debian/bodhi-update-manager/usr/bin/bodhi-update-manager-tray
+	    debian/bodhi-update-manager//usr/lib/bodhi-update-manager/bodhi-update-manager-tray
 
 	# Compile gettext translations (.po → .mo) into the staged package tree.
 	for po in po/*.po; do \
