@@ -29,6 +29,20 @@ from bodhi_update.utils import (  # noqa: E402
     reboot_required,
 )
 
+# Localization with gettext
+
+import gettext
+
+APP_NAME = "bodhi-update-manager"
+LOCALE_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+    "locale"
+)
+
+gettext.bindtextdomain(APP_NAME, "/usr/share/locale")
+gettext.textdomain(APP_NAME)
+_ = gettext.gettext
+ngettext = gettext.ngettext
 
 class UpdateManagerWindow(Gtk.Window):
     COL_SELECTED = 0
@@ -45,7 +59,7 @@ class UpdateManagerWindow(Gtk.Window):
     COL_DESC = 11      # Raw description text (for reliable toggle of pkg markup)
 
     def __init__(self, deb_path: str | None = None) -> None:
-        super().__init__(title="Bodhi Update Manager")
+        super().__init__(title=_("Bodhi Update Manager"))
         self.set_default_size(1100, 700)
         self.set_icon_name("bodhi-update-manager")
         self.set_position(Gtk.WindowPosition.CENTER)
@@ -114,30 +128,30 @@ class UpdateManagerWindow(Gtk.Window):
 
         # File Menu
         file_menu = Gtk.Menu()
-        file_item = Gtk.MenuItem(label="File")
+        file_item = Gtk.MenuItem(label=_("File"))
         file_item.set_submenu(file_menu)
 
-        self.refresh_menu_item = Gtk.MenuItem(label="Refresh")
+        self.refresh_menu_item = Gtk.MenuItem(label=_("Refresh"))
         self.refresh_menu_item.connect("activate", lambda _: self.on_check_updates(None))
         file_menu.append(self.refresh_menu_item)
 
-        self.install_sel_menu_item = Gtk.MenuItem(label="Install Selected")
+        self.install_sel_menu_item = Gtk.MenuItem(label=_("Install Selected"))
         self.install_sel_menu_item.connect("activate", lambda _: self.on_install_selected(None))
         file_menu.append(self.install_sel_menu_item)
 
         file_menu.append(Gtk.SeparatorMenuItem())
 
-        self.select_all_menu_item = Gtk.MenuItem(label="Select All")
+        self.select_all_menu_item = Gtk.MenuItem(label=_("Select All"))
         self.select_all_menu_item.connect("activate", lambda _: self.on_select_all(None))
         file_menu.append(self.select_all_menu_item)
 
-        self.clear_menu_item = Gtk.MenuItem(label="Clear")
+        self.clear_menu_item = Gtk.MenuItem(label=_("Clear"))
         self.clear_menu_item.connect("activate", lambda _: self.on_clear_selection(None))
         file_menu.append(self.clear_menu_item)
 
         file_menu.append(Gtk.SeparatorMenuItem())
 
-        quit_item = Gtk.MenuItem(label="Quit")
+        quit_item = Gtk.MenuItem(label=_("Quit"))
         quit_item.connect("activate", lambda _: Gtk.main_quit())
         file_menu.append(quit_item)
 
@@ -145,10 +159,10 @@ class UpdateManagerWindow(Gtk.Window):
 
         # Edit Menu
         edit_menu = Gtk.Menu()
-        edit_item = Gtk.MenuItem(label="Edit")
+        edit_item = Gtk.MenuItem(label=_("Edit"))
         edit_item.set_submenu(edit_menu)
 
-        pref_item = Gtk.MenuItem(label="Preferences")
+        pref_item = Gtk.MenuItem(label=_("Preferences"))
         pref_item.connect("activate", lambda _: self._show_preferences_dialog())
         edit_menu.append(pref_item)
 
@@ -156,10 +170,10 @@ class UpdateManagerWindow(Gtk.Window):
 
         # View Menu
         view_menu = Gtk.Menu()
-        view_item = Gtk.MenuItem(label="View")
+        view_item = Gtk.MenuItem(label=_("View"))
         view_item.set_submenu(view_menu)
 
-        self.show_desc_menu_item = Gtk.CheckMenuItem(label="Show Descriptions")
+        self.show_desc_menu_item = Gtk.CheckMenuItem(label=_("Show Descriptions"))
         self.show_desc_menu_item.set_active(self.prefs.get("show_descriptions", True))
         self.show_desc_menu_item.connect("toggled", self.on_toggle_descriptions)
         view_menu.append(self.show_desc_menu_item)
@@ -168,10 +182,10 @@ class UpdateManagerWindow(Gtk.Window):
 
         # Help Menu
         help_menu = Gtk.Menu()
-        help_item = Gtk.MenuItem(label="Help")
+        help_item = Gtk.MenuItem(label=_("Help"))
         help_item.set_submenu(help_menu)
 
-        about_item = Gtk.MenuItem(label="About")
+        about_item = Gtk.MenuItem(label=_("About"))
         about_item.connect("activate", lambda _: self._show_about_dialog())
         help_menu.append(about_item)
 
@@ -181,19 +195,19 @@ class UpdateManagerWindow(Gtk.Window):
     def _build_toolbar(self) -> None:
         toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
 
-        self.clear_button = Gtk.Button(label="Clear")
+        self.clear_button = Gtk.Button(label=_("Clear"))
         self.clear_button.connect("clicked", self.on_clear_selection)
         toolbar.pack_start(self.clear_button, False, False, 0)
 
-        self.select_all_button = Gtk.Button(label="Select All")
+        self.select_all_button = Gtk.Button(label=_("Select All"))
         self.select_all_button.connect("clicked", self.on_select_all)
         toolbar.pack_start(self.select_all_button, False, False, 0)
 
-        self.check_button = Gtk.Button(label="Refresh")
+        self.check_button = Gtk.Button(label=_("Refresh"))
         self.check_button.connect("clicked", self.on_check_updates)
         toolbar.pack_start(self.check_button, False, False, 0)
 
-        self.install_selected_button = Gtk.Button(label="Install Selected")
+        self.install_selected_button = Gtk.Button(label=_("Install Selected"))
         self.install_selected_button.connect("clicked", self.on_install_selected)
         toolbar.pack_start(self.install_selected_button, False, False, 0)
 
@@ -201,10 +215,10 @@ class UpdateManagerWindow(Gtk.Window):
         toolbar.pack_start(spacer, True, True, 0)
 
         self.category_combo = Gtk.ComboBoxText()
-        self.category_combo.append("all", "All")
-        self.category_combo.append("security", "Security")
-        self.category_combo.append("kernel", "Kernel")
-        self.category_combo.append("system", "System")
+        self.category_combo.append("all", _("All"))
+        self.category_combo.append("security", _("Security"))
+        self.category_combo.append("kernel", _("Kernel"))
+        self.category_combo.append("system", _("System"))
         # Optional backends: only add a filter entry when discovered.
         _registered_ids = {b.backend_id for b in get_registry().get_all_backends()}
         if "snap" in _registered_ids:
@@ -225,11 +239,11 @@ class UpdateManagerWindow(Gtk.Window):
         # set_no_show_all prevents show_all() from revealing this widget.
         self.reboot_info_bar.set_no_show_all(True)
 
-        label = Gtk.Label(label="A system restart is required to complete the update.")
+        label = Gtk.Label(label=_("A system restart is required to complete the update."))
         label.show()
         self.reboot_info_bar.get_content_area().add(label)
 
-        self.reboot_info_bar.add_button("Restart Now", Gtk.ResponseType.ACCEPT)
+        self.reboot_info_bar.add_button(_("Restart Now"), Gtk.ResponseType.ACCEPT)
         self.reboot_info_bar.connect("response", self._on_reboot_bar_response)
 
         self.outer_box.pack_start(self.reboot_info_bar, False, False, 0)
@@ -273,7 +287,7 @@ class UpdateManagerWindow(Gtk.Window):
         # Type icon column (leftmost) — visual shorthand for package category.
         icon_renderer = Gtk.CellRendererText()
         icon_renderer.set_property("xalign", 0.5)
-        icon_column = Gtk.TreeViewColumn("Type", icon_renderer, text=self.COL_ICON)
+        icon_column = Gtk.TreeViewColumn(_("Type"), icon_renderer, text=self.COL_ICON)
         icon_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
         icon_column.set_fixed_width(48)
         icon_column.set_resizable(False)
@@ -283,7 +297,7 @@ class UpdateManagerWindow(Gtk.Window):
         toggle_renderer = Gtk.CellRendererToggle()
         toggle_renderer.set_property("activatable", True)
         toggle_renderer.connect("toggled", self.on_toggle_selected)
-        toggle_column = Gtk.TreeViewColumn("Upgrade", toggle_renderer, active=self.COL_SELECTED)
+        toggle_column = Gtk.TreeViewColumn(_("Upgrade"), toggle_renderer, active=self.COL_SELECTED)
         toggle_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
         toggle_column.set_fixed_width(72)
         self.tree.append_column(toggle_column)
@@ -294,7 +308,7 @@ class UpdateManagerWindow(Gtk.Window):
         self.pkg_renderer = Gtk.CellRendererText()
         self.pkg_renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
         self.pkg_renderer.set_property("ellipsize-set", True)
-        self.pkg_column = Gtk.TreeViewColumn("Package", self.pkg_renderer, markup=self.COL_PACKAGE)
+        self.pkg_column = Gtk.TreeViewColumn(_("Package"), self.pkg_renderer, markup=self.COL_PACKAGE)
         self.pkg_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
         self.pkg_column.set_resizable(True)
         self.pkg_column.set_expand(True)
@@ -304,22 +318,22 @@ class UpdateManagerWindow(Gtk.Window):
 
         self.tree.append_column(
             self._make_text_column(
-                "Installed", self.COL_INSTALLED, expand=False, min_width=150
+                _("Installed"), self.COL_INSTALLED, expand=False, min_width=150
             )
         )
         self.tree.append_column(
             self._make_text_column(
-                "New", self.COL_NEW, expand=False, min_width=150
+                _("New"), self.COL_NEW, expand=False, min_width=150
             )
         )
         self.tree.append_column(
             self._make_text_column(
-                "Size", self.COL_SIZE, expand=False, min_width=100
+                _("Size"), self.COL_SIZE, expand=False, min_width=100
             )
         )
         self.tree.append_column(
             self._make_text_column(
-                "Repository", self.COL_REPO, expand=True, min_width=180
+                _("Repository"), self.COL_REPO, expand=True, min_width=180
             )
         )
 
@@ -333,29 +347,29 @@ class UpdateManagerWindow(Gtk.Window):
 
         self.install_title_label = Gtk.Label()
         self.install_title_label.set_xalign(0.0)
-        self.install_title_label.set_markup("<b>Installing updates...</b>")
+        self.install_title_label.set_markup("<b>%s</b>" % _("Installing updates..."))
         self.install_page.pack_start(self.install_title_label, False, False, 0)
 
         self.install_phase_label = Gtk.Label()
         self.install_phase_label.set_xalign(0.0)
-        self.install_phase_label.set_text("Waiting for authentication...")
+        self.install_phase_label.set_text(_("Waiting for authentication..."))
         self.install_page.pack_start(self.install_phase_label, False, False, 0)
 
         self.install_progress = Gtk.ProgressBar()
         self.install_progress.set_hexpand(True)
         self.install_progress.set_show_text(True)
         self.install_progress.set_fraction(0.0)
-        self.install_progress.set_text("Waiting for authentication...")
+        self.install_progress.set_text(_("Waiting for authentication..."))
         self.install_page.pack_start(self.install_progress, False, False, 0)
 
         controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.install_page.pack_start(controls, False, False, 0)
 
-        self.show_details_button = Gtk.ToggleButton(label="Show Details")
+        self.show_details_button = Gtk.ToggleButton(label=_("Show Details"))
         self.show_details_button.connect("toggled", self.on_toggle_details)
         controls.pack_start(self.show_details_button, False, False, 0)
 
-        self.back_to_updates_button = Gtk.Button(label="Back to Updates")
+        self.back_to_updates_button = Gtk.Button(label=_("Back to Updates"))
         self.back_to_updates_button.set_sensitive(False)
         self.back_to_updates_button.connect("clicked", self.on_back_to_updates)
         controls.pack_end(self.back_to_updates_button, False, False, 0)
@@ -398,12 +412,12 @@ class UpdateManagerWindow(Gtk.Window):
 
     def _show_preferences_dialog(self) -> None:
         dialog = Gtk.Dialog(
-            title="Preferences",
+            title=_("Preferences"),
             transient_for=self,
             flags=Gtk.DialogFlags.MODAL,
         )
-        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        dialog.add_button("Apply", Gtk.ResponseType.APPLY)
+        dialog.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
+        dialog.add_button(_("Apply"), Gtk.ResponseType.APPLY)
 
         box = dialog.get_content_area()
         box.set_spacing(8)
@@ -416,12 +430,12 @@ class UpdateManagerWindow(Gtk.Window):
         flatpak_check: Gtk.CheckButton | None = None
 
         if "snap" in _registered_ids:
-            snap_check = Gtk.CheckButton(label="Show Snap updates")
+            snap_check = Gtk.CheckButton(label=_("Show Snap updates"))
             snap_check.set_active(self.prefs.get("show_snap", True))
             box.pack_start(snap_check, False, False, 0)
 
         if "flatpak" in _registered_ids:
-            flatpak_check = Gtk.CheckButton(label="Show Flatpak updates")
+            flatpak_check = Gtk.CheckButton(label=_("Show Flatpak updates"))
             flatpak_check.set_active(self.prefs.get("show_flatpak", True))
             box.pack_start(flatpak_check, False, False, 0)
 
@@ -444,17 +458,17 @@ class UpdateManagerWindow(Gtk.Window):
             if changed:
                 self._save_prefs()
                 self.filter_model.refilter()
-                self._set_status("Preferences saved.")
+                self._set_status(_("Preferences saved."))
 
         dialog.destroy()
 
     def _show_about_dialog(self) -> None:
         dialog = Gtk.Dialog(
-            title="About Bodhi Update Manager",
+            title=_("About Bodhi Update Manager"),
             transient_for=self,
             modal=True,
         )
-        dialog.add_button("Close", Gtk.ResponseType.CLOSE)
+        dialog.add_button(_("Close"), Gtk.ResponseType.CLOSE)
         dialog.set_default_size(420, 260)
         dialog.set_resizable(False)
 
@@ -466,12 +480,12 @@ class UpdateManagerWindow(Gtk.Window):
         box.add(outer)
 
         title = Gtk.Label()
-        title.set_markup("<b>Bodhi Update Manager</b>")
+        title.set_markup("<b>%s</b>" % _("Bodhi Update Manager"))
         title.set_justify(Gtk.Justification.CENTER)
         title.set_xalign(0.5)
         outer.pack_start(title, False, False, 0)
 
-        subtitle = Gtk.Label(label="A lightweight system update tool for Bodhi Linux.")
+        subtitle = Gtk.Label(label=_("A lightweight system update tool for Bodhi Linux."))
         subtitle.set_justify(Gtk.Justification.CENTER)
         subtitle.set_xalign(0.5)
         outer.pack_start(subtitle, False, False, 0)
@@ -491,14 +505,14 @@ class UpdateManagerWindow(Gtk.Window):
 
         credits_label = Gtk.Label()
         credits_label.set_markup(
-            "<b>Created by:</b> Joseph Wiley (Flux-Abyss)\n"
-        )
+            "<b>%s</b> %s\n" % (_("Created by:"), "Joseph Wiley (Flux-Abyss)"))
+        
         credits_label.set_justify(Gtk.Justification.CENTER)
         credits_label.set_xalign(0.5)
         credits_label.set_yalign(0.5)
         credits_box.pack_start(credits_label, True, True, 0)
 
-        link = Gtk.Button(label="GitHub Repository")
+        link = Gtk.Button(label=_("GitHub Repository"))
         link.connect(
             "clicked",
             lambda _: Gtk.show_uri_on_window(
@@ -607,7 +621,7 @@ class UpdateManagerWindow(Gtk.Window):
         return column
 
     def _ready_status_text(self) -> str:
-        return "Restart required." if reboot_required() else "Ready"
+        return _("Restart required.") if reboot_required() else _("Ready")
 
     # ------------------------------------------------------------------ #
     # State management                                                     #
@@ -641,7 +655,8 @@ class UpdateManagerWindow(Gtk.Window):
 
     def _set_status(self, message: str) -> None:
         if reboot_required() and "Restart required" not in message:
-            message = f"{message}  Restart required."
+            message = _("%(message)s  Restart required.") % {
+						"message": message }
         self.status_label.set_text(message)
 
     def _update_count_status(
@@ -649,26 +664,32 @@ class UpdateManagerWindow(Gtk.Window):
     ) -> None:
         if count == 0:
             self._set_status(
-                "System is up to date. Cached package data shown."
+                _("System is up to date. Cached package data shown.")
                 if cached
-                else "System is up to date."
+                else _("System is up to date.")
             )
             return
 
-        plural = "s" if count != 1 else ""
         has_unknown_size = any(
             row[self.COL_RAW_SIZE] == 0 and row[self.COL_BACKEND] != "apt"
             for row in self.store
         )
         if has_unknown_size:
-            size_str = f"{format_size(total_bytes)}+" if total_bytes > 0 else "Unknown"
+            size_str = f"{format_size(total_bytes)}+" if total_bytes > 0 else _("Unknown")
         else:
             size_str = format_size(total_bytes)
-
-        message = f"{count} update{plural} available · Download: {size_str}"
+       
+        message = ngettext(
+		    "%(count)d update available · Download: %(size)s",
+		    "%(count)d updates available · Download: %(size)s",
+		    count
+        ) % {
+		    "count": count,
+		    "size": size_str
+        }
         if cached:
-            message += " · Cached package data"
-
+            message = _("%(message)s · Cached package data") % {"message": message}
+				
         # Give a lightweight hint if optional backends found anything.
         extras = []
         for backend, label in (
@@ -679,8 +700,10 @@ class UpdateManagerWindow(Gtk.Window):
                 extras.append(label)
 
         if extras:
-            message += f" (includes {', '.join(extras)})"
-
+            message = _("%(message)s (includes %(extras)s)") % {
+        "message": message,
+        "extras": ", ".join(extras)
+		}
         self._set_status(message)
 
     def _refresh_selection_status(self) -> None:
@@ -722,11 +745,19 @@ class UpdateManagerWindow(Gtk.Window):
         elif has_known:
             dl_part = format_size(known_bytes)
         else:
-            dl_part = "Unknown"
+            dl_part = _("Unknown")
 
-        plural = "s" if total_selected != 1 else ""
-        self._set_status(f"{total_selected} update{plural} selected · Download: {dl_part}")
+        message = ngettext(
+		    "%(count)d update selected · Download: %(size)s",
+		    "%(count)d updates selected · Download: %(size)s",
+		    total_selected
+	    ) % {
+		    "count": total_selected,
+		    "size": dl_part
+	    }
 
+        self._set_status(message)
+	
     # ------------------------------------------------------------------ #
     # Store / data helpers                                                 #
     # ------------------------------------------------------------------ #
@@ -774,7 +805,7 @@ class UpdateManagerWindow(Gtk.Window):
         name_esc = GLib.markup_escape_text(name)
         markup = f"<b>{name_esc}</b>"
         if show_desc:
-            desc_esc = GLib.markup_escape_text(description or "System package")
+            desc_esc = GLib.markup_escape_text(description or _("System package"))
             markup += f"\n<small>{desc_esc}</small>"
         return markup
 
@@ -789,7 +820,7 @@ class UpdateManagerWindow(Gtk.Window):
                 icon = self._category_icon(update.category, update.backend)
                 pkg_markup = self._build_pkg_markup(update.name, update.description, show_desc)
                 size_str = (
-                    "N/A"
+                    _("N/A")
                     if update.size == 0 and update.backend != "apt"
                     else format_size(update.size)
                 )
@@ -806,7 +837,7 @@ class UpdateManagerWindow(Gtk.Window):
                         update.backend,  # COL_BACKEND
                         icon,            # COL_ICON
                         update.size,     # COL_RAW_SIZE (bytes; 0 for non-reporting backends)
-                        update.description or "System package",  # COL_DESC (raw, for toggle)
+                        update.description or _("System package"),  # COL_DESC (raw, for toggle)
                     ]
                 )
         finally:
@@ -838,7 +869,7 @@ class UpdateManagerWindow(Gtk.Window):
 
         if error_msgs and not updates:
             self._clear_store()
-            self._set_status("Failed to read cached package information.")
+            self._set_status(_("Failed to read cached package information."))
             return
 
         self._populate_store(updates)
@@ -855,7 +886,7 @@ class UpdateManagerWindow(Gtk.Window):
         updates: List[UpdateItem],
         total_bytes: int,
     ) -> bool:
-        log.info("Refresh finished. %d updates. Success: %s", len(updates), ok)
+        log.info(_("Refresh finished. %d updates. Success: %s"), len(updates), ok)
         self._set_refresh_busy(False)
 
         # Always populate the store, even on fatal failure
@@ -868,7 +899,9 @@ class UpdateManagerWindow(Gtk.Window):
         if not ok and message:
             # Append the failure message to the status rather than overwriting the count
             current_status = self.status_label.get_text()
-            self._set_status(f"{current_status}  —  Warning: {message}")
+            self._set_status(_("%(current_status)s — Warning: %(message)s") %
+            {"current_status":current_status,
+            "message":message})
 
         return False
 
@@ -900,11 +933,11 @@ class UpdateManagerWindow(Gtk.Window):
         # Only hard-fail if NO enabled backend succeeded
         fatal_fail = (successful_backends == 0 and len(backends) > 0)
 
-        final_msg = "Package lists refreshed."
+        final_msg = _("Package lists refreshed.")
         if messages:
             final_msg = " · ".join(messages)
 
-        log.info("Finished querying backends. Total updates: %d", len(updates))
+        log.info(_("Finished querying backends. Total updates: %d"), len(updates))
 
         GLib.idle_add(  # type: ignore[call-arg]
             self._finish_refresh_ui,
@@ -927,16 +960,16 @@ class UpdateManagerWindow(Gtk.Window):
         self._set_install_busy(True)
         self.install_output_started = False
         self.stack.set_visible_child_name("install")
-
-        self.install_title_label.set_markup(f"<b>{GLib.markup_escape_text(title)}</b>")
-        self.install_phase_label.set_text("Waiting for authentication...")
+        self.install_title_label.set_markup(
+			"<b>%s</b>" % GLib.markup_escape_text(title))
+        self.install_phase_label.set_text(_("Waiting for authentication..."))
         self.install_progress.set_fraction(0.0)
         self.install_progress.set_show_text(True)
-        self.install_progress.set_text("Waiting for authentication...")
+        self.install_progress.set_text(_("Waiting for authentication..."))
 
         self.install_details_revealer.set_reveal_child(False)
         self.show_details_button.set_active(False)
-        self.show_details_button.set_label("Show Details")
+        self.show_details_button.set_label(_("Show Details"))
 
         if self.install_pulse_source_id is not None:
             GLib.source_remove(self.install_pulse_source_id)
@@ -970,54 +1003,59 @@ class UpdateManagerWindow(Gtk.Window):
         )
 
     def _launch_install(self, argv: list[str], title: str) -> None:
-        log.info("Starting installation: %s", title)
-        log.debug("Command: %s", argv)
+        log.info(_("Starting installation: %s"), title)
+        log.debug(_("Command: %s"), argv)
         self._start_install_progress(title)
-        self._set_status("Installation started.")
+        self._set_status(_("Installation started."))
         self._spawn_install_command(argv)
 
     def _launch_deb_install(self, deb_path: str) -> None:
         """Switch to the install screen and install a local .deb file."""
         deb_name = os.path.basename(deb_path)
-        self._start_install_progress(f"Installing {deb_name}...")
+        self._start_install_progress(_("Installing %(deb_name)s...")
+        %{"deb_name":deb_name})
 
         try:
             argv = build_deb_install_argv(deb_path)
         except (RuntimeError, ValueError, FileNotFoundError) as exc:
             self._set_install_busy(False)
             self.install_progress.set_fraction(0.0)
-            self.install_progress.set_text("Failed")
+            self.install_progress.set_text(_("Failed"))
             self.install_phase_label.set_text(str(exc))
-            self._set_status(f"Validation failed: {exc}")
+            self._set_status(_("Validation failed: %(exc)s") %
+            {"exc":exc})
             return
 
-        self._launch_install(argv, f"Installing {deb_name}...")
+        self._launch_install(argv, _("Installing %(deb_name)s...") %
+        {"deb_name":deb_name})
 
     def _finish_install_success(self) -> None:
-        log.info("Installation completed successfully.")
+        log.info(_("Installation completed successfully."))
         self._set_install_busy(False)
         self.install_progress.set_fraction(1.0)
-        self.install_progress.set_text("Complete")
-        self.install_phase_label.set_text("Updates installed successfully.")
-        self._set_status("Updates installed successfully.")
+        self.install_progress.set_text(_("Complete"))
+        self.install_phase_label.set_text(_("Updates installed successfully."))
+        self._set_status(_("Updates installed successfully."))
 
         # Show the reboot banner if the system has flagged a restart is needed.
         if reboot_required():
             self.reboot_info_bar.show()
 
     def _finish_install_failure(self, exit_code: int) -> None:
-        log.error("Installation failed with exit code: %s", exit_code)
+        log.error(_("Installation failed with exit code: %s"), exit_code)
         self._set_install_busy(False)
         self.install_progress.set_fraction(0.0)
-        self.install_progress.set_text("Failed")
+        self.install_progress.set_text(_("Failed"))
         self.install_phase_label.set_text(
-            f"Update failed. Exit code: {exit_code}. See Details below."
-        )
+            _("Update failed. Exit code: %(exit_code)s. See Details below.")
+        % {"exit_code":exit_code})
+        
         # Always reveal the terminal so the error output is visible.
         self.install_details_revealer.set_reveal_child(True)
         self.show_details_button.set_active(True)
-        self.show_details_button.set_label("Hide Details")
-        self._set_status(f"Update failed. Exit code: {exit_code}")
+        self.show_details_button.set_label(_("Hide Details"))
+        self._set_status(_("Update failed. Exit code: %(exit_code)s") %
+        {"exit_code":exit_code})
 
     def _terminal_has_meaningful_output(self) -> bool:
         """Return True when the embedded terminal contains real visible output."""
@@ -1040,14 +1078,15 @@ class UpdateManagerWindow(Gtk.Window):
 
         privilege_tool = find_privilege_tool()
         if privilege_tool is None:
-            self._set_status("No privilege tool found. Please reboot manually.")
+            self._set_status(_("No privilege tool found. Please reboot manually."))
             return
 
         from bodhi_update.install_commands import get_helper_path  # noqa: PLC0415
         try:
             subprocess.Popen([privilege_tool, get_helper_path(), "reboot"])
         except OSError as exc:
-            self._set_status(f"Failed to initiate reboot: {exc}")
+            self._set_status(_("Failed to initiate reboot: %(exc)s") %
+            {"exc":exc})
 
     # ------------------------------------------------------------------ #
     # Signal handlers                                                      #
@@ -1063,13 +1102,13 @@ class UpdateManagerWindow(Gtk.Window):
 
         if not self.install_output_started:
             self.install_output_started = True
-            self.install_phase_label.set_text("Installing... This may take a few minutes.")
-            self.install_progress.set_text("Installing updates...")
+            self.install_phase_label.set_text(_("Installing... This may take a few minutes."))
+            self.install_progress.set_text(_("Installing updates..."))
 
             # Reveal the terminal immediately on first output.
             self.install_details_revealer.set_reveal_child(True)
             self.show_details_button.set_active(True)
-            self.show_details_button.set_label("Hide Details")
+            self.show_details_button.set_label(_("Hide Details"))
 
             if self.install_pulse_source_id is None:
                 self.install_pulse_source_id = GLib.timeout_add(
@@ -1137,8 +1176,8 @@ class UpdateManagerWindow(Gtk.Window):
                 return
 
         self._set_refresh_busy(True)
-        self._set_status("Checking for updates...")
-        log.info("Starting background refresh for updates.")
+        self._set_status(_("Checking for updates..."))
+        log.info(_("Starting background refresh for updates."))
 
         worker = threading.Thread(target=self._refresh_worker, daemon=True)
         worker.start()
@@ -1157,12 +1196,12 @@ class UpdateManagerWindow(Gtk.Window):
             apt_backend = registry.get_backend("apt")
             if apt_backend:
                 return apt_backend.build_install_command(None)
-            raise RuntimeError("Primary backend (APT) is not configured.")
+            raise RuntimeError(_("Primary backend (APT) is not configured."))
 
         if len(grouped_packages) > 1:
             raise RuntimeError(
-                "Installing from multiple package sources simultaneously is not yet supported. "
-                "Please select packages from one source type only."
+                _("Installing from multiple package sources simultaneously is not yet supported. "
+                "Please select packages from one source type only.")
             )
 
         backend_id = next(iter(grouped_packages.keys()))
@@ -1171,7 +1210,8 @@ class UpdateManagerWindow(Gtk.Window):
         registry = get_registry()
         backend = registry.get_backend(backend_id)
         if not backend:
-            raise RuntimeError(f"Requested installation for unknown backend: {backend_id}")
+            raise RuntimeError(_("Requested installation for unknown backend: %(backend_id)s")
+            % {"backend_id":backend_id})
 
         return backend.build_install_command(target_packages)
 
@@ -1181,7 +1221,7 @@ class UpdateManagerWindow(Gtk.Window):
 
         grouped_packages = self._selected_package_names()
         if not any(pkgs for pkgs in grouped_packages.values()):
-            self._set_status("No packages selected.")
+            self._set_status(_("No packages selected."))
             return
 
         try:
@@ -1190,12 +1230,12 @@ class UpdateManagerWindow(Gtk.Window):
             self._set_status(str(exc))
             return
 
-        self._launch_install(argv, "Installing selected updates...")
+        self._launch_install(argv, _("Installing selected updates..."))
 
     def on_toggle_details(self, button: Gtk.ToggleButton) -> None:
         revealed = button.get_active()
         self.install_details_revealer.set_reveal_child(revealed)
-        button.set_label("Hide Details" if revealed else "Show Details")
+        button.set_label(_("Hide Details") if revealed else _("Show Details"))
 
     def on_back_to_updates(self, _button: Gtk.Button) -> None:
         if self.install_in_progress:
