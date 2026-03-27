@@ -190,7 +190,7 @@ msgstr "Pronto"
 #: src/bodhi_update/app.py:658
 #, python-format
 msgid "%(message)s  Restart required."
-msgstr "%(messages)s  Riavvio richiesto."
+msgstr "%(message)s  Riavvio richiesto."
 
 #: src/bodhi_update/app.py:667
 msgid "System is up to date. Cached package data shown."
