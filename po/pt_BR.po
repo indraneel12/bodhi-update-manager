@@ -1,5 +1,5 @@
 # Portuguese translations for bodhi-update-manager package
-# Tradu��es em portugu�s brasileiro para o pacote bodhi-update-manager.
+# Traduções em português brasileiro para o pacote bodhi-update-manager.
 # Copyright (C) 2026 Bodhi Linux Team
 # This file is distributed under the same license as the bodhi-update-manager package.
 # Automatically generated, 2026.
