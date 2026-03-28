@@ -15,11 +15,11 @@ Built with **Python**, **GTK3**, and **VTE**, the application provides a unified
 ## Screenshots
 
 <p align="center">
-  <a href="doc/screenshots/bodhi-update-manager1.png">
-    <img src="doc/screenshots/bodhi-update-manager1.png" width="48%">
+  <a href="doc/screenshots/bodhi-update-manager-1.png">
+    <img src="doc/screenshots/bodhi-update-manager-1.png" width="48%">
   </a>
-  <a href="doc/screenshots/bodhi-update-manager2.png">
-    <img src="doc/screenshots/bodhi-update-manager2.png" width="48%">
+  <a href="doc/screenshots/bodhi-update-manager-2.png">
+    <img src="doc/screenshots/bodhi-update-manager-2.png" width="48%">
   </a>
 </p>
 
