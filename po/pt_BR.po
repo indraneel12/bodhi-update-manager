@@ -1,5 +1,5 @@
 # Portuguese translations for bodhi-update-manager package
-# Traduções em português brasileiro para o pacote bodhi-update-manager.
+# Traduï¿½ï¿½es em portuguï¿½s brasileiro para o pacote bodhi-update-manager.
 # Copyright (C) 2026 Bodhi Linux Team
 # This file is distributed under the same license as the bodhi-update-manager package.
 # Automatically generated, 2026.
@@ -331,7 +331,7 @@ msgid "Failed to initiate reboot: %(exc)s"
 msgstr ""
 
 #: src/bodhi_update/app.py:1105
-msgid "Installing... This may take a few minutes."
+msgid "This may take a few minutes."
 msgstr ""
 
 #: src/bodhi_update/app.py:1179

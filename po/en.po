@@ -330,8 +330,8 @@ msgid "Failed to initiate reboot: %(exc)s"
 msgstr "Failed to initiate reboot: %(exc)s"
 
 #: src/bodhi_update/app.py:1105
-msgid "Installing... This may take a few minutes."
-msgstr "Installing... This may take a few minutes."
+msgid "This may take a few minutes."
+msgstr "This may take a few minutes."
 
 #: src/bodhi_update/app.py:1179
 msgid "Checking for updates..."

@@ -334,7 +334,7 @@ msgid "Failed to initiate reboot: %(exc)s"
 msgstr "Zrestartowanie nieudane: %(exc)s"
 
 #: src/bodhi_update/app.py:1105
-msgid "Installing... This may take a few minutes."
+msgid "This may take a few minutes."
 msgstr "Instalowanie... Może to potrwać kilka minut."
 
 #: src/bodhi_update/app.py:1179

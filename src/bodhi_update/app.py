@@ -963,13 +963,17 @@ class UpdateManagerWindow(Gtk.Window):
     def _start_install_progress(self, title: str) -> None:
         self._set_install_busy(True)
         self.install_output_started = False
+        self._active_privilege_tool = None
         self.stack.set_visible_child_name("install")
+
         self.install_title_label.set_markup(
-			"<b>%s</b>" % GLib.markup_escape_text(title))
+            "<b>%s</b>" % GLib.markup_escape_text(title)
+        )
         self.install_phase_label.set_text(_("Waiting for authentication..."))
         self.install_progress.set_fraction(0.0)
         self.install_progress.set_show_text(True)
         self.install_progress.set_text(_("Waiting for authentication..."))
+        self._set_status(_("Waiting for authentication..."))
 
         self.install_details_revealer.set_reveal_child(False)
         self.show_details_button.set_active(False)
@@ -984,11 +988,63 @@ class UpdateManagerWindow(Gtk.Window):
         except Exception:
             pass
 
+    def _mark_install_running(self) -> None:
+        """Transition the install UI from auth-pending to install-running.
+
+        Single source of truth for revealing VTE, updating status/progress,
+        and starting the pulse animation.  Safe to call multiple times;
+        only the first call has any effect.
+        """
+        if self.install_output_started:
+            return
+
+        self.install_output_started = True
+        self.install_phase_label.set_text(
+            _("This may take a few minutes.")
+        )
+        self.install_progress.set_text(_("Installing updates..."))
+        self._set_status(_("Install started"))
+
+        self.install_details_revealer.set_reveal_child(True)
+        self.show_details_button.set_active(True)
+        self.show_details_button.set_label(_("Hide Details"))
+        self.install_terminal.grab_focus()
+
+        if self.install_pulse_source_id is None:
+            self.install_pulse_source_id = GLib.timeout_add(
+                150, self._pulse_install_progress
+            )
+
+    def _on_spawn_complete(self, terminal, pid, error, user_data=None):
+        """VTE spawn_async callback — (terminal, pid, error, user_data).
+
+        For pkexec: fires when pkexec is exec'd (before GUI auth dialog).
+        For sudo/doas: fires when sudo/doas is exec'd (before password prompt).
+        Used to catch hard spawn failures and, for pkexec, to detect when
+        authentication has completed (first PTY output = helper started).
+        """
+        if error is not None:
+            log.error(_("Spawn failed: %s"), error.message)
+            self._set_install_busy(False)
+            self.install_progress.set_fraction(0.0)
+            self.install_progress.set_text(_("Failed"))
+            self.install_phase_label.set_text(
+                _("Failed to start installation. See Details below.")
+            )
+            self.install_details_revealer.set_reveal_child(True)
+            self.show_details_button.set_active(True)
+            self.show_details_button.set_label(_("Hide Details"))
+            self._set_status(_("Failed to start installation."))
+            return
+
+        log.info(_("Install process spawned (pid %s)."), pid)
+
+
     def _spawn_install_command(self, argv: list[str]) -> None:
         """Spawn *argv* directly in the embedded VTE terminal.
 
         No shell is involved: the first element of *argv* is exec'd directly
-        by VTE's PTY layer.  For privileged APT operations this means:
+        by VTE's PTY layer. For privileged APT operations this means:
             GUI → pkexec → /usr/libexec/bodhi-update-manager-root → apt-get
         """
         envv = [f"{k}={v}" for k, v in os.environ.items()]
@@ -1003,15 +1059,41 @@ class UpdateManagerWindow(Gtk.Window):
             None,
             -1,
             None,
+            self._on_spawn_complete,
             None,
         )
+
+    def _handle_terminal_auth_fallback(self) -> None:
+        """Update the UI when terminal authentication (sudo/doas) is used instead of pkexec."""
+        msg = _(
+            "Enter your password in the terminal below."
+            " For security, nothing will appear while typing."
+        )
+
+        log.info(_("Terminal auth in use — revealing VTE for password entry."))
+
+        self.install_details_revealer.set_reveal_child(True)
+        self.show_details_button.set_active(True)
+        self.show_details_button.set_label(_("Hide Details"))
+
+        self.install_phase_label.set_text(msg)
+        self.install_progress.set_text(_("Waiting for authentication..."))
+        self._set_status(_("Waiting for authentication..."))
+
+        self.install_terminal.grab_focus()
 
     def _launch_install(self, argv: list[str], title: str) -> None:
         log.info(_("Starting installation: %s"), title)
         log.debug(_("Command: %s"), argv)
+
         self._start_install_progress(title)
-        self._set_status(_("Installation started."))
+        # Store the tool used for THIS install so callbacks don't re-lookup.
+        self._active_privilege_tool = find_privilege_tool()
         self._spawn_install_command(argv)
+
+        # sudo/doas: auth happens inside the VTE — reveal it immediately.
+        if self._active_privilege_tool != "pkexec":
+            self._handle_terminal_auth_fallback()
 
     def _launch_deb_install(self, deb_path: str) -> None:
         """Switch to the install screen and install a local .deb file."""
@@ -1097,27 +1179,22 @@ class UpdateManagerWindow(Gtk.Window):
     # ------------------------------------------------------------------ #
 
     def on_install_terminal_contents_changed(self, _terminal: Vte.Terminal) -> None:
-        """Reveal the VTE terminal as soon as real output appears."""
+        """Transition to install-running state on first PTY output.
+
+        For pkexec: pkexec never writes to the PTY during the GUI auth dialog
+        (it uses dbus/polkit), so the first contents-changed always means the
+        install helper has started — i.e. authentication succeeded.
+
+        For sudo/doas: the password prompt appears immediately in the PTY, so
+        we skip this handler for that path (already transitioned by the
+        terminal-auth fallback reveal; _mark_install_running() is called here
+        only for the fallback path once the helper actually starts).
+        """
         if not self.install_in_progress:
             return
 
-        if not self._terminal_has_meaningful_output():
-            return
-
-        if not self.install_output_started:
-            self.install_output_started = True
-            self.install_phase_label.set_text(_("Installing... This may take a few minutes."))
-            self.install_progress.set_text(_("Installing updates..."))
-
-            # Reveal the terminal immediately on first output.
-            self.install_details_revealer.set_reveal_child(True)
-            self.show_details_button.set_active(True)
-            self.show_details_button.set_label(_("Hide Details"))
-
-            if self.install_pulse_source_id is None:
-                self.install_pulse_source_id = GLib.timeout_add(
-                    150, self._pulse_install_progress
-                )
+        # Both paths converge here: _mark_install_running() is idempotent.
+        self._mark_install_running()
 
     def on_toggle_selected(self, _renderer: Gtk.CellRendererToggle, path: str) -> None:
         if self.refresh_in_progress or self.install_in_progress:
