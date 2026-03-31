@@ -1,8 +1,9 @@
 """Integrated tray indicator for the Update Manager.
 
 Owns exactly one tray icon per application instance.  All menu actions
-operate on the shared UpdateManagerWindow passed in at construction time —
-no second window is ever spawned.
+lazily create the UpdateManagerWindow on first use via the application's
+_get_or_create_window() helper — the window is never pre-created in tray
+mode, so GTK cannot implicitly show it at startup.
 
 Indicator backend priority:
   1. AppIndicator3 (Ayatana) — preferred on modern Ubuntu/Debian DE stacks
@@ -19,7 +20,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk  # noqa: E402
 
 if TYPE_CHECKING:
-    from bodhi_update.app import UpdateManagerWindow
+    from bodhi_update.app import UpdateManagerApplication
 
 # Try to import AppIndicator3 (Ayatana or classic libappindicator).
 _AppIndicator = None
@@ -42,13 +43,16 @@ if _AppIndicator is None:
 # ---------------------------------------------------------------------------
 
 class TrayIcon:
-    """System-tray icon whose actions operate on *window*.
+    """System-tray icon whose actions operate on the application's window.
+
+    Receives the *application* (not the window) so it can lazily create the
+    window on demand instead of requiring it to exist at construction time.
 
     Call :meth:`destroy` to remove the icon when the application exits.
     """
 
-    def __init__(self, window: "UpdateManagerWindow") -> None:
-        self._window = window
+    def __init__(self, app: "UpdateManagerApplication") -> None:
+        self._app = app
         self._indicator = None  # AppIndicator3 handle if available
         self._status_icon = None  # Gtk.StatusIcon handle if falling back
 
@@ -67,7 +71,7 @@ class TrayIcon:
             icon.set_from_icon_name("bodhi-update-manager")
             icon.set_tooltip_text("Update Manager")
             icon.set_visible(True)
-            icon.connect("activate", lambda _: self._toggle_window())
+            icon.connect("activate", lambda _: self._show_window())
             icon.connect("popup-menu", self._on_status_icon_popup)
             self._status_icon = icon
             self._menu = menu  # keep alive
@@ -100,8 +104,14 @@ class TrayIcon:
     # Actions
     # ------------------------------------------------------------------
 
+    def _show_window(self) -> None:
+        """Lazily create the window (if needed) and make it visible."""
+        win = self._app._get_or_create_window()
+        win.show_all()
+        win.present()
+
     def _toggle_window(self) -> None:
-        win = self._window
+        win = self._app._get_or_create_window()
         if win.get_visible():
             win.hide()
         else:
@@ -109,18 +119,17 @@ class TrayIcon:
             win.present()
 
     def _check_updates(self) -> None:
-        win = self._window
+        win = self._app._get_or_create_window()
         if not win.get_visible():
             win.show_all()
             win.present()
         win.on_check_updates(None)
 
     def _quit(self) -> None:
-        app = self._window.get_application()
-        if app is not None:
-            app.quit()
-        else:
-            Gtk.main_quit()
+        if self._app._held_for_tray:
+            self._app._held_for_tray = False
+            self._app.release()
+        self._app.quit()
 
     # ------------------------------------------------------------------
     # StatusIcon popup helper

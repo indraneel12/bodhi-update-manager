@@ -1,10 +1,16 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Update Manager Tray
-Comment=Start the Update Manager tray applet
-Exec=bodhi-update-manager --tray
+Name=Bodhi Update Manager
+Name[it]=Update Manager
+Name[pl]=Menedżer Aktualizacji
+Comment=Install system updates and local packages for Bodhi Linux
+Comment[it]=Installa gli aggiornamenti e pacchetti locali per Bodhi Linux
+Comment[pl]=Instaluje aktualizacje systemu i pakiety lokalne dla Bodhi Linux
+Exec=bodhi-update-manager %f
 Icon=bodhi-update-manager
 Terminal=false
-StartupNotify=false
-NoDisplay=true
+MimeType=application/vnd.debian.binary-package;
+Categories=System;PackageManager;
+StartupNotify=true
+NoDisplay=false

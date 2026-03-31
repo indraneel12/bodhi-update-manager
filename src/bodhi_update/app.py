@@ -19,7 +19,7 @@ import gi  # noqa: E402
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Vte", "2.91")
-from gi.repository import GLib, Gtk, Pango, Vte  # noqa: E402
+from gi.repository import Gio, GLib, Gtk, Pango, Vte  # noqa: E402
 
 from bodhi_update.backends import get_registry, initialize_registry  # noqa: E402
 from bodhi_update.install_commands import build_deb_install_argv  # noqa: E402
@@ -985,7 +985,7 @@ class UpdateManagerWindow(Gtk.Window):
         self.install_progress.set_fraction(0.0)
         self.install_progress.set_show_text(True)
         self.install_progress.set_text(_("Waiting for authentication..."))
-        self._set_status(_("Waiting for authentication..."))
+        self._set_status(_("Ready"))
 
         self.install_details_revealer.set_reveal_child(False)
         self.show_details_button.set_active(False)
@@ -1092,7 +1092,7 @@ class UpdateManagerWindow(Gtk.Window):
 
         self.install_phase_label.set_text(msg)
         self.install_progress.set_text(_("Waiting for authentication..."))
-        self._set_status(_("Waiting for authentication..."))
+        self._set_status(_("Ready"))
 
         self.install_terminal.grab_focus()
 
@@ -1189,7 +1189,7 @@ class UpdateManagerWindow(Gtk.Window):
         self.install_progress.set_fraction(1.0)
         self.install_progress.set_text(_("Complete"))
         self.install_phase_label.set_text(_("Updates installed successfully."))
-        self._set_status(_("Updates installed successfully."))
+        self._set_status(_("Ready"))
 
         # Show the reboot banner if the system has flagged a restart is needed.
         if reboot_required():
@@ -1409,38 +1409,64 @@ class UpdateManagerApplication(Gtk.Application):
     shared window rather than spawning another process.
     """
 
-    def __init__(self, *, tray_mode: bool = False, deb_path: str | None = None) -> None:
-        super().__init__(application_id="org.bodhi.UpdateManager")
-        self._tray_mode = tray_mode
+    def __init__(self, *, deb_path: str | None = None) -> None:
+        super().__init__(
+            application_id="org.bodhilinux.UpdateManager",
+            flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE,
+        )
+        self._tray_mode: bool = False
         self._deb_path = deb_path
         self._window: UpdateManagerWindow | None = None
         self._tray = None
+        self._held_for_tray: bool = False
 
     # ------------------------------------------------------------------
     # Gtk.Application overrides
     # ------------------------------------------------------------------
 
+    def do_command_line(self, command_line) -> int:  # type: ignore[override]
+        """Parse --tray from the GTK command line before activation."""
+        args = command_line.get_arguments()[1:]
+        self._tray_mode = "--tray" in args
+        self.activate()
+        return 0
+
     def do_activate(self) -> None:  # type: ignore[override]
-        """Create the window on first activation; present it on subsequent ones."""
+        """First activation: create window (normal) or tray only (tray mode).
+
+        In tray mode the window is NOT created here at all — GTK cannot
+        implicitly show a window that doesn't exist yet.  The tray icon will
+        call _get_or_create_window() lazily when the user requests it.
+
+        On subsequent activations (e.g. user re-launches the binary while the
+        app is already running) we create/show the window unconditionally so
+        the user always gets a visible result.
+        """
+        if self._window is None:
+            if self._tray_mode:
+                from bodhi_update.tray import TrayIcon  # noqa: PLC0415
+                self._tray = TrayIcon(self)
+                self.hold()           # prevent GLib loop from exiting with no windows
+                self._held_for_tray = True
+                return
+
+            self._window = self._get_or_create_window()
+            self._window.show_all()
+            return
+
+        # Already running → raise the window.
+        win = self._get_or_create_window()
+        win.show_all()
+        win.present()
+
+    def _get_or_create_window(self) -> "UpdateManagerWindow":
+        """Return the existing window, creating and wiring it up if needed."""
         if self._window is None:
             self._window = UpdateManagerWindow(deb_path=self._deb_path)
             self._window.set_application(self)
-
-            # Intercept the window-close button: hide instead of destroying
-            # so tray mode continues to work after the user closes the window.
+            # Intercept close: hide instead of destroy while the tray is active.
             self._window.connect("delete-event", self._on_window_delete)
-
-            if self._tray_mode:
-                from bodhi_update.tray import TrayIcon  # noqa: PLC0415
-                self._tray = TrayIcon(self._window)
-                # Start hidden; tray menu will show/hide as needed.
-                self._window.show_all()
-                self._window.hide()
-            else:
-                self._window.show_all()
-        else:
-            # Second activation (another launch attempt or tray menu action).
-            self._window.present()
+        return self._window
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -1455,17 +1481,16 @@ class UpdateManagerApplication(Gtk.Application):
 
 
 def main() -> None:
-    import argparse  # noqa: PLC0415
+    import sys  # noqa: PLC0415
 
-    parser = argparse.ArgumentParser(prog="bodhi-update-manager", add_help=True)
-    parser.add_argument("--tray", action="store_true", help="Start with window hidden, tray only")
-    parser.add_argument("file", nargs="?", default=None, help="Optional .deb file to install")
-    args = parser.parse_args()
-
+    # Sniff positional args for a .deb path only — --tray is handled by
+    # do_command_line() so that GTK sees it before do_activate() fires.
     deb_path: str | None = None
-    if args.file and args.file.lower().endswith(".deb"):
-        deb_path = args.file
+    for arg in sys.argv[1:]:
+        if arg.lower().endswith(".deb"):
+            deb_path = arg
+            break
 
-    app = UpdateManagerApplication(tray_mode=args.tray, deb_path=deb_path)
-    app.run([])
+    app = UpdateManagerApplication(deb_path=deb_path)
+    app.run(sys.argv)
 
