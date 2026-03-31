@@ -1,10 +1,11 @@
-"""GTK3 GUI for the Bodhi Update Manager with embedded VTE install view."""
+"""GTK3 GUI for the Update Manager with embedded VTE install view."""
 
 from __future__ import annotations
 
 import json
 import logging
 import os
+import random
 import subprocess
 import sys
 import threading
@@ -59,7 +60,7 @@ class UpdateManagerWindow(Gtk.Window):
     COL_DESC = 11      # Raw description text (for reliable toggle of pkg markup)
 
     def __init__(self, deb_path: str | None = None) -> None:
-        super().__init__(title=_("Bodhi Update Manager"))
+        super().__init__(title=_("Update Manager"))
         self.set_default_size(1100, 700)
         self.set_icon_name("bodhi-update-manager")
         self.set_position(Gtk.WindowPosition.CENTER)
@@ -69,6 +70,12 @@ class UpdateManagerWindow(Gtk.Window):
         self.install_in_progress = False
         self.install_output_started = False
         self.install_pulse_source_id: int | None = None
+        # Sentinel file + poller for pkexec auth handshake.
+        self._auth_sentinel_path: str | None = None
+        self._auth_poll_source_id: int | None = None
+        # Explicit install/auth state machine.
+        # Valid transitions: IDLE → AUTH_PENDING → RUNNING → COMPLETE | FAILED
+        self.install_state: str = "IDLE"
 
         self.prefs = self._load_prefs()
         # Guard flag used by _set_show_descriptions() to suppress menu re-entry.
@@ -468,7 +475,7 @@ class UpdateManagerWindow(Gtk.Window):
 
     def _show_about_dialog(self) -> None:
         dialog = Gtk.Dialog(
-            title=_("About Bodhi Update Manager"),
+            title=_("About Update Manager"),
             transient_for=self,
             modal=True,
         )
@@ -484,12 +491,12 @@ class UpdateManagerWindow(Gtk.Window):
         box.add(outer)
 
         title = Gtk.Label()
-        title.set_markup("<b>%s</b>" % _("Bodhi Update Manager"))
+        title.set_markup("<b>%s</b>" % _("Update Manager"))
         title.set_justify(Gtk.Justification.CENTER)
         title.set_xalign(0.5)
         outer.pack_start(title, False, False, 0)
 
-        subtitle = Gtk.Label(label=_("A lightweight system update tool for Bodhi Linux."))
+        subtitle = Gtk.Label(label=_("A lightweight system update tool for Debian-based Linux distributions."))
         subtitle.set_justify(Gtk.Justification.CENTER)
         subtitle.set_xalign(0.5)
         outer.pack_start(subtitle, False, False, 0)
@@ -961,9 +968,15 @@ class UpdateManagerWindow(Gtk.Window):
         return True
 
     def _start_install_progress(self, title: str) -> None:
+        self.install_state = "AUTH_PENDING"
         self._set_install_busy(True)
         self.install_output_started = False
         self._active_privilege_tool = None
+        # Reset sentinel/poller state for fresh install.
+        self._auth_sentinel_path = None
+        if self._auth_poll_source_id is not None:
+            GLib.source_remove(self._auth_poll_source_id)
+            self._auth_poll_source_id = None
         self.stack.set_visible_child_name("install")
 
         self.install_title_label.set_markup(
@@ -989,21 +1002,21 @@ class UpdateManagerWindow(Gtk.Window):
             pass
 
     def _mark_install_running(self) -> None:
-        """Transition the install UI from auth-pending to install-running.
+        """Transition the install UI from AUTH_PENDING to RUNNING.
 
-        Single source of truth for revealing VTE, updating status/progress,
-        and starting the pulse animation.  Safe to call multiple times;
-        only the first call has any effect.
+        Single gate: called by the sentinel poller (pkexec) or the VTE marker
+        watcher (sudo/doas) once auth is confirmed.  Idempotent.
         """
-        if self.install_output_started:
+        if self.install_state != "AUTH_PENDING":
             return
 
+        self.install_state = "RUNNING"
         self.install_output_started = True
         self.install_phase_label.set_text(
             _("This may take a few minutes.")
         )
         self.install_progress.set_text(_("Installing updates..."))
-        self._set_status(_("Install started"))
+        self._set_status(_("Installing updates..."))
 
         self.install_details_revealer.set_reveal_child(True)
         self.show_details_button.set_active(True)
@@ -1018,13 +1031,15 @@ class UpdateManagerWindow(Gtk.Window):
     def _on_spawn_complete(self, terminal, pid, error, user_data=None):
         """VTE spawn_async callback — (terminal, pid, error, user_data).
 
-        For pkexec: fires when pkexec is exec'd (before GUI auth dialog).
-        For sudo/doas: fires when sudo/doas is exec'd (before password prompt).
-        Used to catch hard spawn failures and, for pkexec, to detect when
-        authentication has completed (first PTY output = helper started).
+        Fires when the privilege tool process is exec'd by VTE's PTY layer.
+        Used to catch hard spawn failures (e.g. pkexec binary not found).
+        Auth success is detected by the sentinel poller (pkexec) or the VTE
+        marker watcher (sudo/doas), not here.
         """
         if error is not None:
             log.error(_("Spawn failed: %s"), error.message)
+            self.install_state = "FAILED"
+            self._cancel_auth_sentinel()
             self._set_install_busy(False)
             self.install_progress.set_fraction(0.0)
             self.install_progress.set_text(_("Failed"))
@@ -1082,6 +1097,44 @@ class UpdateManagerWindow(Gtk.Window):
 
         self.install_terminal.grab_focus()
 
+    def _poll_auth_sentinel(self) -> bool:
+        """GLib timeout callback: check if the sentinel file has appeared.
+
+        Called every 100 ms while waiting for pkexec auth.  When the root
+        helper writes the sentinel file we delete it and transition to RUNNING.
+        Returns False (stopping the source) once no longer in AUTH_PENDING.
+        """
+        if self.install_state != "AUTH_PENDING":
+            self._auth_poll_source_id = None
+            return False
+
+        path = self._auth_sentinel_path
+        if path and os.path.exists(path):
+            log.info("Auth sentinel found — transitioning to RUNNING.")
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+            self._auth_sentinel_path = None
+            self._auth_poll_source_id = None
+            GLib.idle_add(self._mark_install_running)
+            return False
+
+        return True
+
+    def _cancel_auth_sentinel(self) -> None:
+        """Stop the sentinel poller and clean up any leftover sentinel file."""
+        if self._auth_poll_source_id is not None:
+            GLib.source_remove(self._auth_poll_source_id)
+            self._auth_poll_source_id = None
+        path = self._auth_sentinel_path
+        if path:
+            self._auth_sentinel_path = None
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+
     def _launch_install(self, argv: list[str], title: str) -> None:
         log.info(_("Starting installation: %s"), title)
         log.debug(_("Command: %s"), argv)
@@ -1089,34 +1142,48 @@ class UpdateManagerWindow(Gtk.Window):
         self._start_install_progress(title)
         # Store the tool used for THIS install so callbacks don't re-lookup.
         self._active_privilege_tool = find_privilege_tool()
-        self._spawn_install_command(argv)
 
-        # sudo/doas: auth happens inside the VTE — reveal it immediately.
-        if self._active_privilege_tool != "pkexec":
+        if self._active_privilege_tool == "pkexec":
+            # Pass the sentinel path as a CLI argument to bypass pkexec's
+            # environment variable stripping.
+            sentinel = f"/tmp/bodup-auth-{os.getpid()}-{random.randint(0, 0xFFFFFF):06x}.ok"
+            self._auth_sentinel_path = sentinel
+            # Insert --sentinel <path> immediately after the helper path.
+            # argv layout: [pkexec, helper, subcommand, ...]
+            # becomes:     [pkexec, helper, --sentinel, path, subcommand, ...]
+            guarded_argv = [argv[0], argv[1], "--sentinel", sentinel, *argv[2:]]
+            self._spawn_install_command(guarded_argv)
+            self._auth_poll_source_id = GLib.timeout_add(100, self._poll_auth_sentinel)
+        else:
+            # sudo/doas: auth happens inside the VTE — reveal it immediately.
+            self._spawn_install_command(argv)
             self._handle_terminal_auth_fallback()
 
     def _launch_deb_install(self, deb_path: str) -> None:
         """Switch to the install screen and install a local .deb file."""
         deb_name = os.path.basename(deb_path)
-        self._start_install_progress(_("Installing %(deb_name)s...")
-        %{"deb_name":deb_name})
 
         try:
             argv = build_deb_install_argv(deb_path)
         except (RuntimeError, ValueError, FileNotFoundError) as exc:
+            # Show a minimal install page so the error is visible, then bail.
+            self._start_install_progress(_("Installing %(deb_name)s...")
+            % {"deb_name": deb_name})
             self._set_install_busy(False)
             self.install_progress.set_fraction(0.0)
             self.install_progress.set_text(_("Failed"))
             self.install_phase_label.set_text(str(exc))
             self._set_status(_("Validation failed: %(exc)s") %
-            {"exc":exc})
+            {"exc": exc})
             return
 
         self._launch_install(argv, _("Installing %(deb_name)s...") %
-        {"deb_name":deb_name})
+        {"deb_name": deb_name})
 
     def _finish_install_success(self) -> None:
         log.info(_("Installation completed successfully."))
+        self.install_state = "COMPLETE"
+        self._cancel_auth_sentinel()
         self._set_install_busy(False)
         self.install_progress.set_fraction(1.0)
         self.install_progress.set_text(_("Complete"))
@@ -1129,13 +1196,15 @@ class UpdateManagerWindow(Gtk.Window):
 
     def _finish_install_failure(self, exit_code: int) -> None:
         log.error(_("Installation failed with exit code: %s"), exit_code)
+        self.install_state = "FAILED"
+        self._cancel_auth_sentinel()
         self._set_install_busy(False)
         self.install_progress.set_fraction(0.0)
         self.install_progress.set_text(_("Failed"))
         self.install_phase_label.set_text(
             _("Update failed. Exit code: %(exit_code)s. See Details below.")
         % {"exit_code":exit_code})
-        
+
         # Always reveal the terminal so the error output is visible.
         self.install_details_revealer.set_reveal_child(True)
         self.show_details_button.set_active(True)
@@ -1143,20 +1212,22 @@ class UpdateManagerWindow(Gtk.Window):
         self._set_status(_("Update failed. Exit code: %(exit_code)s") %
         {"exit_code":exit_code})
 
-    def _terminal_has_meaningful_output(self) -> bool:
-        """Return True when the embedded terminal contains real visible output."""
+    def _terminal_text(self) -> str:
+        """Return the current plain-text contents of the VTE terminal.
+
+        Returns an empty string on any error or if the terminal is blank.
+
+        get_text() must be called with attributes=None to satisfy the
+        vte_terminal_get_text internal assertion 'attributes == nullptr'.
+        Passing only the is_selected callback causes PyGObject to supply a
+        non-null GArray, which triggers that assertion.
+        """
         try:
-            result = self.install_terminal.get_text(lambda *args: True)
+            result = self.install_terminal.get_text(lambda *a: True, None)
             text = result[0] if isinstance(result, tuple) else result
+            return text or ""
         except Exception:
-            return False
-
-        if not text:
-            return False
-
-        # Ignore pure whitespace / blank terminal noise.
-        return bool(text.strip())
-
+            return ""
     def _on_reboot_bar_response(self, _bar: Gtk.InfoBar, response_id: int) -> None:
         """Handle the Restart Now button in the reboot info bar."""
         if response_id != Gtk.ResponseType.ACCEPT:
@@ -1178,23 +1249,30 @@ class UpdateManagerWindow(Gtk.Window):
     # Signal handlers                                                      #
     # ------------------------------------------------------------------ #
 
+    # Stdout marker emitted by the root helper for the sudo/doas auth path.
+    # AUTH_PENDING remains active until this string is seen in PTY output.
+    _INSTALL_STARTED_MARKER = "UPDATE_MANAGER_INSTALL_STARTED"
+
     def on_install_terminal_contents_changed(self, _terminal: Vte.Terminal) -> None:
-        """Transition to install-running state on first PTY output.
+        """Watch for the auth-success marker from the root helper (sudo/doas only).
 
-        For pkexec: pkexec never writes to the PTY during the GUI auth dialog
-        (it uses dbus/polkit), so the first contents-changed always means the
-        install helper has started — i.e. authentication succeeded.
+        For pkexec: auth is detected by the sentinel file poller; this callback
+        returns immediately when the active tool is pkexec.
 
-        For sudo/doas: the password prompt appears immediately in the PTY, so
-        we skip this handler for that path (already transitioned by the
-        terminal-auth fallback reveal; _mark_install_running() is called here
-        only for the fallback path once the helper actually starts).
+        For sudo/doas: the root helper prints "UPDATE_MANAGER_INSTALL_STARTED" to stdout
+        immediately before launching apt-get.  That marker is the sole trigger
+        for AUTH_PENDING → RUNNING on the terminal-auth path.  All earlier PTY
+        content (password prompts etc.) is ignored until the marker appears.
         """
         if not self.install_in_progress:
             return
+        if self.install_state != "AUTH_PENDING":
+            return
+        if self._active_privilege_tool == "pkexec":
+            return
 
-        # Both paths converge here: _mark_install_running() is idempotent.
-        self._mark_install_running()
+        if self._INSTALL_STARTED_MARKER in self._terminal_text():
+            self._mark_install_running()
 
     def on_toggle_selected(self, _renderer: Gtk.CellRendererToggle, path: str) -> None:
         if self.refresh_in_progress or self.install_in_progress:

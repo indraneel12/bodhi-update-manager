@@ -19,8 +19,13 @@ from bodhi_update.utils import find_privilege_tool
 # Production path registered in the polkit policy file.
 _INSTALLED_HELPER = "/usr/libexec/bodhi-update-manager-root"
 
-# Development fallback: the source-tree copy alongside this file.
-_DEV_HELPER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "root_helper.py")
+# Development fallback: the source-tree helper at data/libexec/bodhi-update-manager-root,
+# reached by walking two levels up from src/bodhi_update/ to the repo root.
+_DEV_HELPER = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),  # src/bodhi_update/
+    "..", "..",                                   # → repo root
+    "data", "libexec", "bodhi-update-manager-root",
+)
 
 
 def get_helper_path() -> str:
@@ -29,7 +34,8 @@ def get_helper_path() -> str:
     Resolution order:
     1. ``BODHI_HELPER_PATH`` env var — lets packagers or CI override the path.
     2. The installed binary at ``/usr/libexec/bodhi-update-manager-root``.
-    3. ``root_helper.py`` alongside this file (development / uninstalled mode).
+    3. ``data/libexec/bodhi-update-manager-root`` in the source tree
+       (development / uninstalled mode).
     """
     override = os.environ.get("BODHI_HELPER_PATH")
     if override:

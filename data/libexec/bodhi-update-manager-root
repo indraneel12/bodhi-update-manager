@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Privileged root helper for the Bodhi Update Manager.
+"""Privileged root helper for the Update Manager.
 
 Intended installation path: /usr/libexec/bodhi-update-manager-root
 
@@ -12,10 +12,20 @@ Supported commands:
   install <pkg> [<pkg>...] -- apt-get install -y <packages>
   install-deb <path>       -- apt-get install -y <absolute .deb path>
   reboot                   -- systemctl reboot
+
+Auth handshake (non-reboot commands only):
+  pkexec path — sentinel file:
+    The GUI passes --sentinel <path> on the command line (pkexec strips env).
+    The helper writes to that file immediately before running apt-get.
+    The GUI polls for the file to detect that pkexec authentication succeeded.
+  sudo/doas path — stdout marker:
+    The helper prints "UPDATE_MANAGER_INSTALL_STARTED" to stdout before apt-get.
+    The GUI's VTE contents-changed watcher uses this to detect auth success.
 """
 
 from __future__ import annotations
 
+import argparse
 import os
 import re
 import sys
@@ -53,16 +63,36 @@ def _validate_deb_path(path: str) -> str:
     return norm
 
 
+def _signal_auth_success(sentinel_path: str | None) -> None:
+    """Signal the GUI that authentication has succeeded.
+
+    Writes to the sentinel file (pkexec path, passed via --sentinel arg)
+    and prints the stdout marker (sudo/doas path).  Both are safe to call
+    regardless of which tool is in use.
+    """
+    # pkexec path: write sentinel file if provided on the command line.
+    if sentinel_path:
+        try:
+            with open(sentinel_path, "w", encoding="utf-8") as f:
+                f.write("started\n")
+        except OSError:
+            pass  # Non-fatal: GUI will time out and fall back gracefully.
+
+    # sudo/doas path: stdout marker watched by VTE contents-changed.
+    print("UPDATE_MANAGER_INSTALL_STARTED", flush=True)
+
+
 # ---------------------------------------------------------------------------
 # Command dispatch
 # ---------------------------------------------------------------------------
 
-def _cmd_refresh(args: list[str]) -> int:
+def _cmd_refresh(args: list[str], sentinel_path: str | None) -> int:
     """apt-get update.  Rejects unexpected extra arguments."""
     if args:
         print(f"error: 'refresh' takes no arguments, got: {args}", file=sys.stderr)
         return 1
 
+    _signal_auth_success(sentinel_path)
     result = subprocess.run(
         ["apt-get", "update", "-q"],
         check=False,
@@ -70,12 +100,13 @@ def _cmd_refresh(args: list[str]) -> int:
     return result.returncode
 
 
-def _cmd_upgrade(args: list[str]) -> int:
+def _cmd_upgrade(args: list[str], sentinel_path: str | None) -> int:
     """apt-get full-upgrade.  Rejects unexpected extra arguments."""
     if args:
         print(f"error: 'upgrade' takes no arguments, got: {args}", file=sys.stderr)
         return 1
 
+    _signal_auth_success(sentinel_path)
     result = subprocess.run(
         ["apt-get", "full-upgrade", "-y"],
         check=False,
@@ -83,7 +114,7 @@ def _cmd_upgrade(args: list[str]) -> int:
     return result.returncode
 
 
-def _cmd_install(args: list[str]) -> int:
+def _cmd_install(args: list[str], sentinel_path: str | None) -> int:
     """apt-get install -y <packages>."""
     if not args:
         print("error: 'install' requires at least one package name.", file=sys.stderr)
@@ -96,6 +127,7 @@ def _cmd_install(args: list[str]) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
+    _signal_auth_success(sentinel_path)
     result = subprocess.run(
         ["apt-get", "install", "-y", *args],
         check=False,
@@ -103,7 +135,7 @@ def _cmd_install(args: list[str]) -> int:
     return result.returncode
 
 
-def _cmd_install_deb(args: list[str]) -> int:
+def _cmd_install_deb(args: list[str], sentinel_path: str | None) -> int:
     """apt-get install -y <absolute .deb path>."""
     if len(args) != 1:
         print("error: 'install-deb' requires exactly one .deb path.", file=sys.stderr)
@@ -115,6 +147,7 @@ def _cmd_install_deb(args: list[str]) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
+    _signal_auth_success(sentinel_path)
     result = subprocess.run(
         ["apt-get", "install", "-y", norm_path],
         check=False,
@@ -122,7 +155,7 @@ def _cmd_install_deb(args: list[str]) -> int:
     return result.returncode
 
 
-def _cmd_reboot(args: list[str]) -> int:
+def _cmd_reboot(args: list[str], sentinel_path: str | None) -> int:
     """systemctl reboot.  Rejects unexpected extra arguments."""
     if args:
         print(f"error: 'reboot' takes no arguments, got: {args}", file=sys.stderr)
@@ -150,7 +183,14 @@ def main() -> int:
         print("error: this helper must be run as root (via pkexec).", file=sys.stderr)
         return 1
 
-    if len(sys.argv) < 2:
+    # Parse --sentinel <path> before the subcommand, ignoring unknown args so
+    # the subcommand name and its own arguments are passed through unchanged.
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--sentinel", default=None)
+    known, remaining = parser.parse_known_args()
+    sentinel_path = known.sentinel
+
+    if not remaining:
         print(
             f"usage: {os.path.basename(sys.argv[0])} "
             "<refresh|upgrade|install|install-deb|reboot> [args...]",
@@ -158,8 +198,8 @@ def main() -> int:
         )
         return 1
 
-    command = sys.argv[1]
-    extra_args = sys.argv[2:]
+    command = remaining[0]
+    extra_args = remaining[1:]
 
     handler = _COMMANDS.get(command)
     if handler is None:
@@ -170,7 +210,7 @@ def main() -> int:
         )
         return 1
 
-    return handler(extra_args)
+    return handler(extra_args, sentinel_path)
 
 
 if __name__ == "__main__":
