@@ -110,4 +110,3 @@ def build_hold_argv(package: str, *, hold: bool) -> list[str]:
     helper = get_helper_path()
     action = "hold" if hold else "unhold"
     return [tool, helper, action, package]
-

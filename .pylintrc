@@ -1,0 +1,30 @@
+[MESSAGES CONTROL]
+disable=
+    missing-docstring,
+    too-many-instance-attributes,
+    too-many-lines,
+    too-many-locals,
+    too-many-statements,
+    protected-access,
+    attribute-defined-outside-init,
+    broad-exception-caught,
+    import-outside-toplevel,
+    wrong-import-position,
+    superfluous-parens,
+    consider-using-f-string,
+    consider-using-max-builtin,
+    no-else-break,
+    redefined-outer-name,
+    reimported,
+    unused-argument,
+    consider-using-with,
+    unnecessary-pass,
+    arguments-differ,
+    wrong-import-order,
+    invalid-name,
+    ungrouped-imports,
+    too-many-return-statements,
+    duplicate-code
+
+[FORMAT]
+max-line-length=100

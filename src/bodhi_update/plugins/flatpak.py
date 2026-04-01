@@ -35,6 +35,7 @@ class FlatpakBackend(UpdateBackend):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 timeout=8,
+                check=False,
             )
             return result.returncode == 0
         except (OSError, subprocess.TimeoutExpired):
@@ -61,6 +62,7 @@ class FlatpakBackend(UpdateBackend):
                 stderr=subprocess.PIPE,
                 text=True,
                 timeout=timeout,
+                check=False,
             )
         except (OSError, subprocess.TimeoutExpired):
             return ""

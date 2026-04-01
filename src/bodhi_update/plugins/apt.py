@@ -64,7 +64,7 @@ _NETWORK_ERROR_HINTS = (
 def _proc_comm(pid: str) -> str:
     """Return the comm (process name) for *pid*, stripped.  '' on error."""
     try:
-        with open(f"/proc/{pid}/comm") as fh:
+        with open(f"/proc/{pid}/comm", encoding="utf-8") as fh:
             return fh.read().strip()
     except OSError:
         return ""
@@ -238,6 +238,7 @@ class AptBackend(UpdateBackend):
                 stderr=subprocess.PIPE,
                 text=True,
                 timeout=120,
+                check=False,
             )
         except subprocess.TimeoutExpired:
             return False, "Package list refresh timed out."
@@ -270,7 +271,7 @@ class AptBackend(UpdateBackend):
             _result = subprocess.run(
                 ["apt-mark", "showhold"],
                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                text=True, timeout=10,
+                text=True, timeout=10, check=False,
             )
             held_names: set[str] = set(_result.stdout.split())
         except Exception:  # pylint: disable=broad-except

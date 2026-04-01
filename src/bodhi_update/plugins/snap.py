@@ -30,6 +30,7 @@ class SnapBackend(UpdateBackend):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 timeout=8,
+                check=False,
             )
             if result.returncode != 0:
                 return False
@@ -72,6 +73,7 @@ class SnapBackend(UpdateBackend):
                 stderr=subprocess.PIPE,
                 text=True,
                 timeout=10,
+                check=False,
             )
         except (OSError, subprocess.TimeoutExpired):
             return {}
@@ -102,6 +104,7 @@ class SnapBackend(UpdateBackend):
                 stderr=subprocess.PIPE,
                 text=True,
                 timeout=20,
+                check=False,
             )
         except (OSError, subprocess.TimeoutExpired):
             return [], 0

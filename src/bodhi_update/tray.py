@@ -52,9 +52,9 @@ if _AppIndicator is None:
 
 # Severity → (fill RGBA, outline RGBA)
 _SEVERITY_COLORS = {
-    "high":   ((220,  60,  60, 255), (120, 220, 120, 255)),  # red fill   / green ring
-    "medium": ((246, 195,  66, 255), (120, 220, 120, 255)),  # amber fill / green ring
-    "low":    (( 80, 210, 230, 255), (120, 220, 120, 255)),  # cyan fill  / green ring
+    "high": ((220, 60, 60, 255), (120, 220, 120, 255)),    # red fill   / green ring
+    "medium": ((246, 195, 66, 255), (120, 220, 120, 255)),  # amber fill / green ring
+    "low": ((80, 210, 230, 255), (120, 220, 120, 255)),     # cyan fill  / green ring
 }
 
 # APT package name prefixes that warrant amber (medium) severity.
@@ -115,7 +115,7 @@ def _add_badge_dot(pixbuf: GdkPixbuf.Pixbuf, severity: str = "medium") -> GdkPix
 
             p = y * rowstride + x * n_channels
             color = outline if dist2 > outline_r2_inner else fill
-            pixels[p]     = color[0]
+            pixels[p] = color[0]
             pixels[p + 1] = color[1]
             pixels[p + 2] = color[2]
             if n_channels == 4:
