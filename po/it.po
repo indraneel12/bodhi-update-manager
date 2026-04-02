@@ -9,8 +9,8 @@ msgstr ""
 "Report-Msgid-Bugs-To: https://github.com/flux-abyss/bodhi-update-manager/"
 "issues\n"
 "POT-Creation-Date: 2026-03-31 16:39-0400\n"
-"PO-Revision-Date: 2026-03-25 14:59+0100\n"
-"Last-Translator: diekrz2\n"
+"PO-Revision-Date: 2026-04-01 10:03+0200\n"
+"Last-Translator: diekrz2 <diekrz2@bodhilinux.com>\n"
 "Language-Team: Bodhi Team\n"
 "Language: it\n"
 "MIME-Version: 1.0\n"
@@ -24,6 +24,9 @@ msgid ""
 "\n"
 "A lightweight graphical update manager for Debian based distros."
 msgstr ""
+"Update Manager\n"
+"\n"
+"Un manager di aggiornamenti grafico e leggero per distribuzioni basate su Debian."
 
 #: src/bodhi_update/app.py:56
 msgid ""
@@ -40,11 +43,22 @@ msgid ""
 "You should have received a copy of the GNU General Public License\n"
 "along with this program.  If not, see <https://www.gnu.org/licenses/>."
 msgstr ""
+"Questo programma è software libero: è possibile ridistribuirlo e/o modificarlo\n"
+"secondo i termini della GNU General Public License come pubblicata dalla\n"
+"Free Software Foundation, sia nella versione 3 della Licenza, sia\n"
+"(a propria scelta) in una versione successiva.\n"
+"\n"
+"Questo programma è distribuito nella speranza che possa essere utile,\n"
+"ma SENZA ALCUNA GARANZIA; senza neppure la garanzia implicita di\n"
+"COMMERCIABILITÀ o IDONEITÀ PER UN PARTICOLARE SCOPO. Si veda la\n"
+"GNU General Public License per maggiori dettagli.\n"
+"\n"
+"Si dovrebbe aver ricevuto una copia della GNU General Public License\n"
+"insieme a questo programma. In caso contrario, vedere <https://www.gnu.org/licenses/>."
 
 #: src/bodhi_update/app.py:86 src/bodhi_update/app.py:579
-#, fuzzy
 msgid "Update Manager"
-msgstr "Bodhi Update Manager"
+msgstr "Update Manager"
 
 #: src/bodhi_update/app.py:160
 msgid "File"
@@ -192,6 +206,9 @@ msgid ""
 "\n"
 "    https://github.com/flux-abyss/bodhi-update-manager"
 msgstr ""
+"Sito web\n"
+"\n"
+"    https://github.com/flux-abyss/bodhi-update-manager"
 
 #: src/bodhi_update/app.py:562
 msgid ""
@@ -204,6 +221,14 @@ msgid ""
 "        Robert “ylee” Wiley\n"
 "        Diego “diekrz2” K."
 msgstr ""
+"Riconoscimenti\n"
+"\n"
+"    Lead Developer:\n"
+"        Joseph “flux.abyss” Wiley\n"
+"\n"
+"    Contributori:\n"
+"        Robert “ylee” Wiley\n"
+"        Diego “diekrz2” K."
 
 #: src/bodhi_update/app.py:572
 msgid ""
@@ -211,18 +236,21 @@ msgid ""
 "\n"
 "    "
 msgstr ""
+"Copyright © 2026 Joseph “flux.abyss” Wiley\n"
+"\n"
+"    "
 
 #: src/bodhi_update/app.py:580
 msgid "Website"
-msgstr ""
+msgstr "Sito web"
 
 #: src/bodhi_update/app.py:581
 msgid "Credits"
-msgstr ""
+msgstr "Riconoscimenti"
 
 #: src/bodhi_update/app.py:582
 msgid "License"
-msgstr ""
+msgstr "Licenza"
 
 #: src/bodhi_update/app.py:703
 msgid "Restart required."
@@ -316,9 +344,9 @@ msgid "Hide Details"
 msgstr "Nascondi dettagli"
 
 #: src/bodhi_update/app.py:1108
-#, fuzzy, python-format
+#, python-format
 msgid "Spawn failed: %s"
-msgstr "Convalida fallita: %(exc)s"
+msgstr "Autenticazione fallita: %s"
 
 #: src/bodhi_update/app.py:1113 src/bodhi_update/app.py:1244
 #: src/bodhi_update/app.py:1273
@@ -327,27 +355,28 @@ msgstr "Fallito"
 
 #: src/bodhi_update/app.py:1115
 msgid "Failed to start installation. See Details below."
-msgstr ""
+msgstr "Fallito l'avvio dell'installazione. Vedere i dettagli."
 
 #: src/bodhi_update/app.py:1120
-#, fuzzy
 msgid "Failed to start installation."
-msgstr "Inizio installazione: %s"
+msgstr "Fallito l'avvio dell'installazione."
 
 #: src/bodhi_update/app.py:1123
 #, python-format
 msgid "Install process spawned (pid %s)."
-msgstr ""
+msgstr "Generato processo installazione (pid %s)."
 
 #: src/bodhi_update/app.py:1152
 msgid ""
 "Enter your password in the terminal below. For security, nothing will appear "
 "while typing."
 msgstr ""
+"Inserisci la propria password nel terminale sotto. Per ragioni di sicurezza, niente apparirà "
+"durante l'inserimento."
 
 #: src/bodhi_update/app.py:1156
 msgid "Terminal auth in use — revealing VTE for password entry."
-msgstr ""
+msgstr "Autenticazione in terminale in uso — rivelo VTE per l'inserimento password."
 
 #: src/bodhi_update/app.py:1207
 #, python-format
@@ -423,7 +452,7 @@ msgid ""
 "Installing from multiple package sources simultaneously is not yet "
 "supported. Please select packages from one source type only."
 msgstr ""
-"L'installazione di pacchetti da più sorgenti non ancora supportata "
+"L'installazione di pacchetti da più sorgenti non è ancora supportata "
 "Selezionare i pacchetti da un' unica sorgente."
 
 #: src/bodhi_update/app.py:1421
@@ -438,21 +467,3 @@ msgstr "Nessun pacchetto selezionato."
 #: src/bodhi_update/app.py:1441
 msgid "Installing selected updates..."
 msgstr "Installo pacchetti selezionati..."
-
-#~ msgid "About Bodhi Update Manager"
-#~ msgstr "Sul Bodhi Update Manager"
-
-#~ msgid "Close"
-#~ msgstr "Chiudi"
-
-#~ msgid "A lightweight system update tool for Bodhi Linux."
-#~ msgstr "Uno strumento leggero per gli aggiornamenti di Bodhi Linux."
-
-#~ msgid "Created by:"
-#~ msgstr "Creato da:"
-
-#~ msgid "GitHub Repository"
-#~ msgstr "Repository GitHub"
-
-#~ msgid "Installation started."
-#~ msgstr "Installazione iniziata."

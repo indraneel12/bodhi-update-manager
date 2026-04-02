@@ -8,8 +8,8 @@ msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: https://github.com/flux-abyss/bodhi-update-manager/issues\n"
 "POT-Creation-Date: 2026-03-31 16:39-0400\n"
-"PO-Revision-Date: 2026-03-27 08:08+0000\n"
-"Last-Translator: diekrz2\n"
+"PO-Revision-Date: 2026-04-01 10:43+0200\n"
+"Last-Translator: diekrz2 <diekrz2@bodhilinux.com>\n"
 "Language-Team: Bodhi Team\n"
 "Language: pl\n"
 "MIME-Version: 1.0\n"
@@ -56,9 +56,8 @@ msgstr ""
 "razem z tym programem. Jeśli nie, zobacz <https://www.gnu.org/licenses/>."
 
 #: src/bodhi_update/app.py:86 src/bodhi_update/app.py:579
-#, fuzzy
 msgid "Update Manager"
-msgstr "Menedżer aktualizacji Bodhi"
+msgstr "Menedżer aktualizacji"
 
 #: src/bodhi_update/app.py:160
 msgid "File"
@@ -126,8 +125,7 @@ msgstr "System"
 
 #: src/bodhi_update/app.py:271
 msgid "A system restart is required to complete the update."
-msgstr ""
-"Aby dokończyć aktualizację, wymagane jest ponowne uruchomienie systemu."
+msgstr "Aby dokończyć aktualizację, wymagane jest ponowne uruchomienie systemu."
 
 #: src/bodhi_update/app.py:275
 msgid "Restart Now"
@@ -166,9 +164,8 @@ msgstr "Repozytorium"
 msgid "Installing updates..."
 msgstr "Instalowanie aktualizacji..."
 
-#: src/bodhi_update/app.py:388 src/bodhi_update/app.py:395
-#: src/bodhi_update/app.py:1053 src/bodhi_update/app.py:1056
-#: src/bodhi_update/app.py:1163
+#: src/bodhi_update/app.py:388 src/bodhi_update/app.py:395 src/bodhi_update/app.py:1053
+#: src/bodhi_update/app.py:1056 src/bodhi_update/app.py:1163
 msgid "Waiting for authentication..."
 msgstr "Oczekiwanie na uwierzytelnienie..."
 
@@ -347,9 +344,9 @@ msgid "Hide Details"
 msgstr "Ukryj szczegóły"
 
 #: src/bodhi_update/app.py:1108
-#, fuzzy, python-format
+#, python-format
 msgid "Spawn failed: %s"
-msgstr "Walidacja nie powiodła się: %(exc)s"
+msgstr "Walidacja nie powiodła się: %s"
 
 #: src/bodhi_update/app.py:1113 src/bodhi_update/app.py:1244
 #: src/bodhi_update/app.py:1273
@@ -361,9 +358,8 @@ msgid "Failed to start installation. See Details below."
 msgstr "Nie udało się rozpocząć instalacji. Szczegóły poniżej."
 
 #: src/bodhi_update/app.py:1120
-#, fuzzy
 msgid "Failed to start installation."
-msgstr "Rozpoczęcie instalacji: %s"
+msgstr "Nie udało się rozpocząć instalacji."
 
 #: src/bodhi_update/app.py:1123
 #, python-format
@@ -454,8 +450,8 @@ msgstr "Podstawowy backend (APT) nie jest skonfigurowany."
 
 #: src/bodhi_update/app.py:1411
 msgid ""
-"Installing from multiple package sources simultaneously is not yet "
-"supported. Please select packages from one source type only."
+"Installing from multiple package sources simultaneously is not yet supported. Please "
+"select packages from one source type only."
 msgstr ""
 "Jednoczesna instalacja z wielu źródeł pakietów nie jest jeszcze obsługiwana."
 " Proszę wybrać pakiety tylko z jednego typu źródła."
@@ -472,21 +468,3 @@ msgstr "Nie wybrano żadnych pakietów."
 #: src/bodhi_update/app.py:1441
 msgid "Installing selected updates..."
 msgstr "Instalowanie wybranych aktualizacji..."
-
-#~ msgid "About Bodhi Update Manager"
-#~ msgstr "O Menedżerze aktualizacji Bodhi"
-
-#~ msgid "Close"
-#~ msgstr "Zamknij"
-
-#~ msgid "A lightweight system update tool for Bodhi Linux."
-#~ msgstr "Lekkie narzędzie do aktualizacji systemu Bodhi Linux."
-
-#~ msgid "Created by:"
-#~ msgstr "Stworzone przez:"
-
-#~ msgid "GitHub Repository"
-#~ msgstr "Repozytorium GitHub"
-
-#~ msgid "Installation started."
-#~ msgstr "Rozpoczęto instalację."
